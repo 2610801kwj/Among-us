@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>P2P Among Us - 20 Players & Animation Edition</title>
+    <title>P2P Among Us - 20 Players & 5x2 Sprite Edition</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@700;900&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Nunito:wght=700;900&display=swap');
         body { margin: 0; background-color: #050505; color: white; font-family: 'Nunito', sans-serif; overflow: hidden; user-select: none; }
         canvas { display: block; }
         
@@ -104,18 +104,18 @@
 
     <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
     <script>
-        // --- 1. 연속동작 스프라이트 이미지 불러오기 ---
+        // --- 1. 5x2 연속동작 스프라이트 이미지 및 타이머 세팅 ---
         const playerImg = new Image();
-        playerImg.src = '1734.png'; // 가로 8프레임 이미지 파일 연결
+        playerImg.src = '1734.png'; // 가로 5칸, 세로 2칸짜리 종합 스프라이트 파일
         
-        let animTimer = 0; // 애니메이션 구동을 위한 타이머 변수
+        let animTimer = 0; 
 
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
         window.addEventListener('resize', resize); resize();
 
-        // 최대 20인 수용 가능한 컬러 스킨 배열
+        // 최대 20인 수용 컬러 데이터 배열
         const COLORS = [
             '#c51111', '#132ed1', '#117f2d', '#ed54ba', '#ef7d0d', 
             '#f5f557', '#3f474e', '#d6e0f0', '#6b2fbb', '#71491e', 
@@ -160,9 +160,9 @@
                 startGameLoop();
             });
             peer.on('connection', (conn) => {
-                // 최대 인원 체크 (호스트 포함 20명 = 클라이언트 최대 19명까지 수용)
+                // 20인 제한 (호스트 1명 + 게스트 최대 19명)
                 if (Object.keys(clients).length >= 19 || gameState.phase !== 'Lobby') {
-                    conn.send({ type: 'error', msg: '방이 가득 찼거나 게임이 시작되었습니다.' }); 
+                    conn.send({ type: 'error', msg: '방이 가득 찼거나 이미 게임이 진행 중입니다.' }); 
                     setTimeout(() => conn.close(), 500); 
                     return;
                 }
@@ -202,13 +202,12 @@
 
         function hostStartGame() {
             const pIds = Object.keys(gameState.players);
-            // 최소인원 5명 허들 체크
+            // 최소 5명 제한
             if (pIds.length < 5) { alert("최소 5명이 모여야 게임을 시작할 수 있습니다! (현재 " + pIds.length + "명)"); return; }
 
             gameState.phase = 'Playing'; gameState.corpses = []; gameState.votes = {};
             gameState.tasksCompleted = 0; gameState.tasksTotal = pIds.length * taskZones.length;
             
-            // 인원수가 늘었으므로 임포스터 비율 상향 조정 가능 (여기서는 우선 1명 랜덤 배정)
             gameState.imposters = [pIds[Math.floor(Math.random() * pIds.length)]];
             pIds.forEach(id => { gameState.players[id].x = WORLD_SIZE/2 + Math.random()*200; gameState.players[id].isDead = false; });
         }
@@ -221,7 +220,7 @@
             if (k.a) { dx -= speed; p.facing = -1; } if (k.d) { dx += speed; p.facing = 1; }
             if (dx !== 0 && dy !== 0) { dx *= 0.707; dy *= 0.707; }
             p.x += dx; p.y += dy; 
-            p.isMoving = (dx !== 0 || dy !== 0); // 플레이어의 이동 여부 기록
+            p.isMoving = (dx !== 0 || dy !== 0); 
         }
 
         function processAction(id, action) {
@@ -278,13 +277,13 @@
             if (gameState.phase === 'Lobby') document.getElementById('game-over-ui').style.display = 'none';
         }
 
-        // --- 팝업형 미니게임 트리거 로직 ---
+        // --- 팝업형 미니게임 제어 ---
         function performTask() {
             const me = gameState.players[myId];
             if (gameState.imposters.includes(myId) || me.isDead) return;
             for (let t of taskZones) {
                 if (!myLocalTasks.includes(t.id) && me.x > t.x && me.x < t.x+t.w && me.y > t.y && me.y < t.y+t.h) {
-                    document.getElementById('minigame-popup').style.display = 'block'; // 팝업 오픈
+                    document.getElementById('minigame-popup').style.display = 'block'; 
                     currentTaskId = t.id; break;
                 }
             }
@@ -312,7 +311,7 @@
         function castVote(tid) { if (myVote || gameState.players[myId].isDead) return; myVote = tid; isHost ? handleVote(myId, tid) : hostConn.send({ type: 'vote', targetId: tid }); }
 
         function updateUI() {
-            document.getElementById('player-list').innerText = `인원수: ${Object.keys(gameState.players).length} / 20 명`;
+            document.getElementById('player-list').innerText = `접속자: ${Object.keys(gameState.players).length} / 20 명`;
             if (gameState.phase === 'Lobby') {
                 document.getElementById('host-start-btn').style.display = isHost ? 'block' : 'none';
             } else if (gameState.phase === 'Playing') {
@@ -326,14 +325,16 @@
         }
 
         let camera = { x: 0, y: 0 };
+        
+        // --- 5x2 전용 슬라이싱 그리기 렌더러 함수 ---
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             ctx.fillStyle = '#1e272e'; ctx.fillRect(-camera.x, -camera.y, WORLD_SIZE, WORLD_SIZE);
             
             taskZones.forEach(t => { ctx.fillStyle = t.color; ctx.fillRect(t.x - camera.x, t.y - camera.y, t.w, t.h); });
 
-            // 매 프레임 애니메이션 타이머 올리기 (0.2를 조절하여 속도 가감)
-            animTimer += 0.2;
+            // 매 프레임 애니메이션 타이머 올리기
+            animTimer += 0.15;
 
             for (let [id, p] of Object.entries(gameState.players)) {
                 if (p.isDead) continue;
@@ -343,24 +344,31 @@
                 ctx.font = 'bold 16px Nunito'; ctx.textAlign = 'center'; ctx.fillStyle = 'white';
                 ctx.fillText(p.name, rx, ry - 40);
                 
-                // --- 가로 8칸 슬라이싱 기반 애니메이션 렌더링 부위 ---
+                // 5x2 스프라이트 계산 영역
                 if (playerImg.complete && playerImg.naturalWidth !== 0) {
-                    const frameWidth = playerImg.width / 8; // 이미지 전체 길이를 8등분
-                    const frameHeight = playerImg.height;
+                    const cols = 5;
+                    const rows = 2;
+                    const frameWidth = playerImg.width / cols; 
+                    const frameHeight = playerImg.height / rows;
                     
-                    // 걷고있으면 타이머에 맞춰 0~7 프레임 무한 반복, 서있으면 0번 프레임 고정
-                    let frameIndex = p.isMoving ? Math.floor(animTimer) % 8 : 0;
-                    let cutX = frameIndex * frameWidth;
+                    // 움직이면 0~9번 순환, 멈추면 0번 프레임 고정
+                    let frameIndex = p.isMoving ? Math.floor(animTimer) % 10 : 0;
+                    
+                    let col = frameIndex % cols;
+                    let row = Math.floor(frameIndex / cols);
+                    
+                    let cutX = col * frameWidth;
+                    let cutY = row * frameHeight;
 
                     if (p.facing === -1) {
                         ctx.translate(rx, ry);
                         ctx.scale(-1, 1);
-                        ctx.drawImage(playerImg, cutX, 0, frameWidth, frameHeight, -25, -30, 50, 60);
+                        ctx.drawImage(playerImg, cutX, cutY, frameWidth, frameHeight, -27, -27, 55, 55);
                     } else {
-                        ctx.drawImage(playerImg, cutX, 0, frameWidth, frameHeight, rx - 25, ry - 30, 50, 60);
+                        ctx.drawImage(playerImg, cutX, cutY, frameWidth, frameHeight, rx - 27, ry - 27, 55, 55);
                     }
                 } else {
-                    // 이미지 누락 또는 로딩전 백업 도형
+                    // 백업용 박스 그리기
                     ctx.fillStyle = p.color; ctx.fillRect(rx - 25, ry - 30, 50, 60);
                 }
                 ctx.restore();
