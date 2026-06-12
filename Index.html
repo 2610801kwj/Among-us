@@ -3,24 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Among Us Clone - High Quality</title>
+    <title>Among Us Clone - High Quality Pro</title>
     <style>
         body {
             margin: 0;
-            background-color: #111;
+            background-color: #000;
             display: flex;
             justify-content: center;
             align-items: center;
             height: 100vh;
             color: white;
-            font-family: sans-serif;
+            font-family: 'Arial', sans-serif;
             overflow: hidden;
         }
         canvas {
-            border: 4px solid #000;
+            border: 4px solid #222;
             border-radius: 10px;
-            box-shadow: 0 0 30px rgba(0, 0, 0, 0.8);
-            background-color: #3b3b42;
+            box-shadow: 0 0 40px rgba(0, 0, 0, 1);
+            background-color: #2b2b30;
         }
         #ui {
             position: absolute;
@@ -28,13 +28,14 @@
             left: 30px;
             pointer-events: none;
             text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+            z-index: 10;
         }
     </style>
 </head>
 <body>
 
     <div id="ui">
-        <h2>어몽어스 (카메라 & 애니메이션 적용)</h2>
+        <h2>어몽어스 (시야 & 충돌 시스템)</h2>
         <p>조작: 방향키 또는 WASD</p>
     </div>
 
@@ -44,27 +45,46 @@
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
 
-        // 게임 월드(맵) 크기 설정
         const WORLD_WIDTH = 2000;
         const WORLD_HEIGHT = 2000;
 
-        // 키 입력 상태 관리
         const keys = {};
         window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
         window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
 
-        // 플레이어 클래스
+        // 장애물(벽) 데이터 배열
+        const walls = [
+            { x: 700, y: 700, w: 400, h: 100, color: '#556' },
+            { x: 700, y: 800, w: 100, h: 300, color: '#556' },
+            { x: 1200, y: 500, w: 150, h: 150, color: '#755' },
+            { x: 400, y: 1200, w: 300, h: 200, color: '#575' }
+        ];
+
+        // 충돌 체크 함수 (AABB 방식)
+        function checkCollision(x, y, w, h) {
+            for (let wall of walls) {
+                if (x < wall.x + wall.w &&
+                    x + w > wall.x &&
+                    y < wall.y + wall.h &&
+                    y + h > wall.y) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
         class Player {
-            constructor(x, y, color) {
+            constructor(x, y, color, name) {
                 this.x = x;
                 this.y = y;
                 this.color = color;
+                this.name = name;
                 this.width = 44;
                 this.height = 55;
                 this.speed = 6;
                 this.direction = 'right';
                 this.isMoving = false;
-                this.walkCycle = 0; // 애니메이션용 타이머
+                this.walkCycle = 0;
             }
 
             update() {
@@ -78,53 +98,67 @@
 
                 this.isMoving = (dx !== 0 || dy !== 0);
 
-                // 대각선 이동 속도 보정
                 if (dx !== 0 && dy !== 0) {
                     dx *= 0.7071;
                     dy *= 0.7071;
                 }
 
-                this.x += dx;
-                this.y += dy;
+                // X축 이동 및 충돌 체크
+                let nextX = this.x + dx;
+                if (!checkCollision(nextX, this.y, this.width, this.height)) {
+                    this.x = Math.max(0, Math.min(nextX, WORLD_WIDTH - this.width));
+                }
 
-                // 맵 경계선 충돌 처리
-                this.x = Math.max(0, Math.min(this.x, WORLD_WIDTH - this.width));
-                this.y = Math.max(0, Math.min(this.y, WORLD_HEIGHT - this.height));
+                // Y축 이동 및 충돌 체크
+                let nextY = this.y + dy;
+                if (!checkCollision(this.x, nextY, this.width, this.height)) {
+                    this.y = Math.max(0, Math.min(nextY, WORLD_HEIGHT - this.height));
+                }
 
-                // 걷기 애니메이션 주기 업데이트
                 if (this.isMoving) {
-                    this.walkCycle += 0.25; // 걷는 속도 조절
+                    this.walkCycle += 0.25;
                 } else {
-                    this.walkCycle = 0; // 멈추면 초기화
+                    this.walkCycle = 0;
                 }
             }
 
             draw(ctx, cameraX, cameraY) {
-                // 화면상의 렌더링 좌표 계산 (실제 좌표 - 카메라 좌표)
                 const renderX = this.x - cameraX;
                 const renderY = this.y - cameraY;
 
-                // 들썩거림 효과 계산 (Sine 함수 사용)
+                // 화면 밖에 있으면 렌더링 생략 (최적화)
+                if (renderX < -100 || renderX > canvas.width + 100 || 
+                    renderY < -100 || renderY > canvas.height + 100) return;
+
                 const bounce = this.isMoving ? Math.abs(Math.sin(this.walkCycle)) * 6 : 0;
                 const leg1Offset = this.isMoving ? Math.max(0, Math.sin(this.walkCycle)) * 8 : 0;
                 const leg2Offset = this.isMoving ? Math.max(0, -Math.sin(this.walkCycle)) * 8 : 0;
 
                 ctx.save();
                 
-                // 1. 그림자 (몸이 위로 뜰수록 그림자가 미세하게 작아짐)
+                // 닉네임 태그 (그림자 포함)
+                ctx.fillStyle = 'white';
+                ctx.font = 'bold 16px Arial';
+                ctx.textAlign = 'center';
+                ctx.shadowColor = 'black';
+                ctx.shadowBlur = 4;
+                ctx.shadowOffsetX = 2;
+                ctx.shadowOffsetY = 2;
+                ctx.fillText(this.name, renderX + this.width / 2, renderY - 15 - bounce);
+                ctx.shadowColor = 'transparent'; // 그림자 초기화
+
+                // 그림자
                 const shadowScale = 1 - (bounce * 0.02);
                 ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
                 ctx.beginPath();
                 ctx.ellipse(renderX + this.width / 2, renderY + this.height + 15, (this.width / 1.4) * shadowScale, 8 * shadowScale, 0, 0, Math.PI * 2);
                 ctx.fill();
 
-                // 렌더링 중심점을 몸통으로 이동 (들썩임 적용)
                 ctx.translate(renderX, renderY - bounce);
-
                 ctx.lineWidth = 4;
                 ctx.strokeStyle = 'black';
 
-                // 2. 백팩 (산소통)
+                // 백팩
                 ctx.fillStyle = this.color;
                 ctx.beginPath();
                 if (this.direction === 'right') {
@@ -134,31 +168,23 @@
                 }
                 ctx.fill(); ctx.stroke();
 
-                // 3. 다리 (애니메이션 적용)
+                // 다리
                 ctx.fillStyle = this.color;
-                // 왼쪽 다리
-                ctx.beginPath();
-                ctx.roundRect(5, this.height - 10 - leg1Offset, 14, 25, 7);
-                ctx.fill(); ctx.stroke();
-                // 오른쪽 다리
-                ctx.beginPath();
-                ctx.roundRect(this.width - 19, this.height - 10 - leg2Offset, 14, 25, 7);
-                ctx.fill(); ctx.stroke();
+                ctx.beginPath(); ctx.roundRect(5, this.height - 10 - leg1Offset, 14, 25, 7); ctx.fill(); ctx.stroke();
+                ctx.beginPath(); ctx.roundRect(this.width - 19, this.height - 10 - leg2Offset, 14, 25, 7); ctx.fill(); ctx.stroke();
 
-                // 4. 몸통
+                // 몸통
                 ctx.fillStyle = this.color;
-                ctx.beginPath();
-                ctx.roundRect(0, 0, this.width, this.height, 22);
-                ctx.fill(); ctx.stroke();
+                ctx.beginPath(); ctx.roundRect(0, 0, this.width, this.height, 22); ctx.fill(); ctx.stroke();
 
-                // 5. 고글 (바이저)
-                ctx.fillStyle = '#83c2d4'; // 메인 유리색
+                // 고글
+                ctx.fillStyle = '#83c2d4';
                 ctx.beginPath();
                 const goggleX = this.direction === 'right' ? 12 : -6;
                 ctx.roundRect(goggleX, 10, 38, 22, 11);
                 ctx.fill(); ctx.stroke();
 
-                // 고글 하이라이트 (빛 반사)
+                // 고글 하이라이트
                 ctx.fillStyle = '#d3eef5';
                 ctx.beginPath();
                 const highlightX = this.direction === 'right' ? 35 : 17;
@@ -169,36 +195,35 @@
             }
         }
 
-        // 게임 초기화
-        const player = new Player(WORLD_WIDTH / 2, WORLD_HEIGHT / 2, '#c51111');
+        // 플레이어 및 NPC 생성
+        const player = new Player(1000, 1000, '#c51111', 'Player');
+        const npcs = [
+            new Player(800, 800, '#1122cc', 'Blue'),
+            new Player(1300, 600, '#11cc22', 'Green'),
+            new Player(500, 1300, '#ffcc00', 'Yellow')
+        ];
 
-        // 카메라 초기화 (화면 중심점)
         let camera = { x: 0, y: 0 };
 
-        // 바닥 타일 그리기 (우주선 느낌)
         function drawMap(ctx, cameraX, cameraY) {
             const tileSize = 100;
-            
-            // 카메라 위치에 따라 타일 시작점 계산
             const startCol = Math.floor(cameraX / tileSize);
             const endCol = startCol + (canvas.width / tileSize) + 1;
             const startRow = Math.floor(cameraY / tileSize);
             const endRow = startRow + (canvas.height / tileSize) + 1;
 
             ctx.lineWidth = 2;
-            ctx.strokeStyle = '#2b2b30'; // 타일 경계선 색상
+            ctx.strokeStyle = '#222';
 
             for (let c = startCol; c <= endCol; c++) {
                 for (let r = startRow; r <= endRow; r++) {
                     const tileX = c * tileSize - cameraX;
                     const tileY = r * tileSize - cameraY;
 
-                    // 맵 바깥 영역은 어둡게 처리
                     if (c * tileSize < 0 || c * tileSize >= WORLD_WIDTH || 
                         r * tileSize < 0 || r * tileSize >= WORLD_HEIGHT) {
-                        ctx.fillStyle = '#111';
+                        ctx.fillStyle = '#000';
                     } else {
-                        // 체크무늬 패턴
                         ctx.fillStyle = (c + r) % 2 === 0 ? '#45454d' : '#4a4a52';
                     }
                     
@@ -208,29 +233,67 @@
             }
         }
 
-        // 메인 게임 루프
+        function drawWalls(ctx, cameraX, cameraY) {
+            ctx.lineWidth = 6;
+            ctx.strokeStyle = '#222';
+            for (let wall of walls) {
+                const renderX = wall.x - cameraX;
+                const renderY = wall.y - cameraY;
+                
+                // 3D 느낌을 살짝 주기 위해 그림자(측면) 추가
+                ctx.fillStyle = '#334';
+                ctx.fillRect(renderX, renderY + 10, wall.w, wall.h);
+
+                ctx.fillStyle = wall.color;
+                ctx.fillRect(renderX, renderY, wall.w, wall.h);
+                ctx.strokeRect(renderX, renderY, wall.w, wall.h);
+            }
+        }
+
+        // 시야 제한(어두운 조명 효과) 그리기
+        function drawVision(ctx) {
+            ctx.save();
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+
+            // 중앙은 투명하고 바깥으로 갈수록 까맣게 변하는 그라데이션
+            const gradient = ctx.createRadialGradient(
+                centerX, centerY, 80,   // 밝은 영역 반경
+                centerX, centerY, 350   // 완전히 어두워지는 반경
+            );
+            gradient.addColorStop(0, 'rgba(0, 0, 0, 0)');
+            gradient.addColorStop(0.5, 'rgba(0, 0, 0, 0.6)');
+            gradient.addColorStop(1, 'rgba(0, 0, 0, 0.98)');
+
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.restore();
+        }
+
         function gameLoop() {
-            // 로직 업데이트
             player.update();
 
-            // 카메라가 플레이어를 중앙에 맞추도록 부드럽게 따라감 (Lerp)
             const targetCameraX = player.x + player.width / 2 - canvas.width / 2;
             const targetCameraY = player.y + player.height / 2 - canvas.height / 2;
-            
             camera.x += (targetCameraX - camera.x) * 0.1;
             camera.y += (targetCameraY - camera.y) * 0.1;
 
-            // 렌더링
             ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
             drawMap(ctx, camera.x, camera.y);
-            player.draw(ctx, camera.x, camera.y);
+            drawWalls(ctx, camera.x, camera.y);
+
+            // NPC와 플레이어 렌더링 (Y축 기준으로 정렬하여 겹칠 때 자연스럽게 보이게 함)
+            const allCharacters = [...npcs, player].sort((a, b) => a.y - b.y);
+            allCharacters.forEach(char => char.draw(ctx, camera.x, camera.y));
+
+            // 가장 마지막에 조명 효과 덮어씌우기
+            drawVision(ctx);
 
             requestAnimationFrame(gameLoop);
         }
 
-        // 게임 시작
         gameLoop();
     </script>
 </body>
 </html>
-
