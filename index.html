@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>P2P Among Us - Vision & Collision Edition</title>
+    <title>P2P Among Us - Premium Graphics Edition</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Nunito:wght=700;900&display=swap');
         body { margin: 0; background-color: #050505; color: white; font-family: 'Nunito', sans-serif; overflow: hidden; user-select: none; }
@@ -11,10 +11,10 @@
         
         /* 공통 UI 패널 */
         .overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10; }
-        .panel { background: rgba(20, 20, 30, 0.95); padding: 40px; border-radius: 20px; border: 3px solid #333; pointer-events: auto; text-align: center; box-shadow: 0 20px 50px rgba(0,0,0,0.8); backdrop-filter: blur(10px); }
+        .panel { background: rgba(15, 15, 25, 0.96); padding: 40px; border-radius: 20px; border: 3px solid #4f5d73; pointer-events: auto; text-align: center; box-shadow: 0 20px 50px rgba(0,0,0,0.9); backdrop-filter: blur(15px); }
         h1 { margin-top: 0; color: #ff4757; font-size: 2.5rem; text-shadow: 3px 3px 0 #000; letter-spacing: 2px; }
         
-        input { padding: 15px; font-size: 18px; border-radius: 10px; border: 2px solid #555; text-align: center; margin-bottom: 20px; width: 250px; text-transform: uppercase; background: #2f3542; color: white; font-family: 'Nunito', sans-serif; font-weight: bold; outline: none; transition: 0.3s; }
+        input { padding: 15px; font-size: 18px; border-radius: 10px; border: 2px solid #555; text-align: center; margin-bottom: 20px; width: 250px; text-transform: uppercase; background: #2f3542; color: white; font-family: 'Nunito', sans-serif; font-weight: bold; outline: none; }
         button { padding: 15px 30px; font-size: 18px; font-weight: 900; background: #1dd1a1; color: white; border: none; border-radius: 10px; cursor: pointer; transition: 0.2s; margin: 5px; text-shadow: 1px 1px 2px rgba(0,0,0,0.5); }
         button:hover { transform: scale(1.05); filter: brightness(1.2); }
         .btn-host { background: #ff4757; }
@@ -23,30 +23,52 @@
         #game-ui { position: absolute; top: 20px; left: 20px; pointer-events: none; display: none; text-shadow: 2px 2px 4px black; z-index: 5; }
         #room-info { font-size: 20px; color: #1dd1a1; margin-bottom: 5px; }
         #player-list { font-size: 16px; color: #ced6e0; margin-bottom: 15px; }
-        #role-info { font-size: 28px; font-weight: 900; margin-bottom: 15px; display: none; }
         #task-bar-container { width: 300px; height: 20px; background: rgba(0,0,0,0.7); border: 2px solid #fff; border-radius: 10px; margin-bottom: 15px; overflow: hidden; display: none; }
         #task-bar-fill { width: 0%; height: 100%; background: #2ed573; transition: width 0.3s; }
         #host-start-btn { pointer-events: auto; display: none; background: #ffa502; margin-top: 10px; }
+        #sabotage-alert { color: #ff4757; font-size: 20px; font-weight: 900; display: none; animation: blink 1s infinite; }
+        
+        /* 미니맵 레이아웃 */
+        #minimap-container { position: absolute; top: 20px; right: 20px; width: 160px; height: 160px; background: rgba(5,5,10,0.85); border: 3px solid #4f5d73; border-radius: 10px; overflow: hidden; display: none; z-index: 4; box-shadow: 0 0 15px rgba(0,0,0,0.5); }
+        #minimap-canvas { width: 100%; height: 100%; }
+
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
         
         /* 액션 버튼 */
-        #action-container { position: absolute; bottom: 30px; right: 30px; display: flex; gap: 20px; z-index: 5; }
-        .action-btn { width: 80px; height: 80px; border-radius: 50%; font-weight: 900; font-size: 16px; display: none; text-align: center; border: 4px solid; color: white; cursor: pointer; pointer-events: auto; transition: 0.2s; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+        #action-container { position: absolute; bottom: 30px; right: 30px; display: flex; gap: 15px; z-index: 5; }
+        .action-btn { width: 85px; height: 85px; border-radius: 50%; font-weight: 900; font-size: 13px; display: none; text-align: center; border: 4px solid; color: white; cursor: pointer; pointer-events: auto; transition: 0.2s; flex-direction: column; justify-content: center; align-items: center; box-shadow: 0 8px 15px rgba(0,0,0,0.5); }
         #kill-btn { background: rgba(255, 71, 87, 0.5); border-color: #ff4757; }
         #report-btn { background: rgba(255, 165, 2, 0.5); border-color: #ffa502; }
         #task-btn { background: rgba(46, 213, 115, 0.5); border-color: #2ed573; }
+        #vent-btn { background: rgba(116, 125, 140, 0.5); border-color: #747d8c; }
+        #sabotage-btn { background: rgba(165, 94, 234, 0.5); border-color: #a55eea; }
+        .action-btn.disabled { opacity: 0.4; pointer-events: none; background: rgba(40,40,40,0.5) !important; border-color: #555 !important; }
         
-        /* 투표 UI */
-        #voting-ui { display: none; }
-        .vote-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-top: 20px; max-width: 800px; max-height: 500px; overflow-y: auto; padding: 10px; }
-        .vote-card { background: #2f3542; padding: 15px; border-radius: 10px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; border: 3px solid transparent; }
-        .vote-card:hover:not(.dead) { border-color: #1dd1a1; }
-        .vote-card.selected { border-color: #ff4757; background: #473235; }
-        .vote-card.dead { opacity: 0.5; pointer-events: none; filter: grayscale(100%); }
+        /* 투표 + 채팅 UI */
+        #voting-ui { display: none; background: rgba(5, 5, 10, 0.98); }
+        .voting-wrapper { display: flex; width: 950px; height: 550px; background: #1a1d24; border-radius: 20px; border: 3px solid #4f5d73; pointer-events: auto; overflow: hidden; box-shadow: 0 25px 50px rgba(0,0,0,0.9); }
+        .voting-left { flex: 1.2; padding: 25px; display: flex; flex-direction: column; justify-content: space-between; border-right: 2px solid #2f3640; }
+        .vote-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; overflow-y: auto; max-height: 380px; padding-right: 5px; }
+        .vote-card { background: #252830; padding: 15px; border-radius: 10px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; border: 3px solid transparent; color: white; transition: 0.2s; }
+        .vote-card:hover:not(.dead) { border-color: #1dd1a1; background: #2c313d; }
+        .vote-card.selected { border-color: #ff4757; background: #42282b; }
+        .vote-card.dead { opacity: 0.3; pointer-events: none; filter: grayscale(100%); }
         .vote-color-box { width: 20px; height: 20px; border-radius: 5px; margin-right: 10px; }
+        
+        .voting-right { flex: 0.8; padding: 20px; display: flex; flex-direction: column; background: #111318; }
+        #chat-box { flex: 1; background: #08090c; border-radius: 10px; padding: 15px; overflow-y: auto; margin-bottom: 10px; text-align: left; font-size: 14px; border: 1px solid #222; }
+        .chat-msg { margin-bottom: 8px; line-height: 1.4; word-break: break-all; }
+        .chat-input-row { display: flex; gap: 8px; }
+        #chat-input { flex: 1; padding: 10px; border-radius: 5px; border: 1px solid #444; background: #1e2127; color: white; font-size: 14px; margin-bottom: 0; text-transform: none; text-align: left; }
+        #chat-send-btn { padding: 10px 15px; font-size: 14px; margin: 0; border-radius: 5px; }
+
+        /* 리포트 컷신 오버레이 */
+        #cutscene-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 99; pointer-events: auto; }
+        #cutscene-text { font-size: 3.5rem; font-weight: 900; color: #ff4757; text-shadow: 0 0 20px rgba(255,71,87,0.6); animation: punch 0.5s ease-out forwards; }
+        @keyframes punch { 0% { transform: scale(3); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
 
         /* 미니게임 팝업 UI */
         #minigame-popup { display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #2f3640; padding: 40px; border: 5px solid #1dd1a1; border-radius: 15px; z-index: 100; text-align: center; box-shadow: 0 0 50px rgba(0,0,0,0.9); pointer-events: auto; }
-        
         #game-over-ui { display: none; }
         #winner-text { font-size: 4rem; margin-bottom: 30px; }
     </style>
@@ -59,18 +81,29 @@
         <div id="room-info"></div>
         <div id="player-list"></div>
         <div id="task-bar-container"><div id="task-bar-fill"></div></div>
+        <div id="sabotage-alert">⚠️ 정전 발생! 배선실(레이더 적색지대)에서 복구하세요!</div>
         <div id="role-info">대기실 (Lobby)</div>
         <button id="host-start-btn" onclick="hostStartGame()">🚀 게임 시작 (최소 5명)</button>
     </div>
 
+    <div id="minimap-container">
+        <canvas id="minimap-canvas" width="160" height="160"></canvas>
+    </div>
+
+    <div id="cutscene-overlay">
+        <div id="cutscene-text">🚨 DEAD BODY REPORTED</div>
+    </div>
+
     <div id="action-container">
         <div id="task-btn" class="action-btn">TASK<br>[ E ]</div>
+        <div id="vent-btn" class="action-btn">VENT<br>[ V ]</div>
+        <div id="sabotage-btn" class="action-btn">LIGHTS<br>[ G ]</div>
         <div id="report-btn" class="action-btn">REPORT<br>[ R ]</div>
         <div id="kill-btn" class="action-btn">KILL<br>[ SPACE ]</div>
     </div>
 
     <div id="minigame-popup">
-        <h2 style="color: white; margin-top: 0;">🔧 미션 수행 중...</h2>
+        <h2 id="minigame-title" style="color: white; margin-top: 0;">🔧 미션 수행 중...</h2>
         <p style="color: #ccc; margin-bottom: 30px;">화면의 버튼을 눌러 작업을 완료하세요!</p>
         <button onclick="finishMinigame()" style="background: #1dd1a1; padding: 20px 40px; font-size: 24px; color: white; border: none; border-radius: 10px; cursor: pointer;">완료하기!</button><br>
         <button onclick="closeMinigame()" style="background: #555; margin-top: 15px; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">닫기 (포기)</button>
@@ -78,21 +111,30 @@
 
     <div class="overlay" id="menu-ui">
         <div class="panel">
-            <h1>P2P AMONG US (Vision & Collision)</h1>
+            <h1>P2P AMONG US (Premium)</h1>
             <input type="text" id="nickname" placeholder="닉네임 입력" maxlength="8" value="Player">
             <hr style="border-color:#444; margin: 20px 0;">
             <button class="btn-host" onclick="createRoom()">방 만들기 (호스트)</button><br><br>
             <input type="text" id="room-code" placeholder="입장 코드 5자리" maxlength="5"><br>
             <button onclick="joinRoom()">방 입장 (게스트)</button>
-            <div id="status-msg" style="margin-top: 15px; color: #ffa502; font-weight: bold;"></div>
         </div>
     </div>
 
     <div class="overlay" id="voting-ui">
-        <div class="panel" style="width: 800px;">
-            <h1 style="color: #ff4757;">🚨 긴급 회의 🚨</h1>
-            <div class="vote-grid" id="vote-grid"></div>
-            <button onclick="castVote('SKIP')" style="margin-top: 20px; background: #747d8c; width: 100%;">투표 건너뛰기</button>
+        <div class="voting-wrapper">
+            <div class="voting-left">
+                <h2 style="color: #ff4757; margin: 0 0 15px 0; text-align: center;">🚨 긴급 재판 진행 중 🚨</h2>
+                <div class="vote-grid" id="vote-grid"></div>
+                <button onclick="castVote('SKIP')" style="background: #747d8c; width: 100%; margin-top: 15px;">투표 건너뛰기 (Skip)</button>
+            </div>
+            <div class="voting-right">
+                <h3 style="margin: 0 0 10px 0; color: #1dd1a1;">💬 회의 채팅방</h3>
+                <div id="chat-box"></div>
+                <div class="chat-input-row">
+                    <input type="text" id="chat-input" placeholder="메시지를 입력하세요..." onkeydown="if(event.key==='Enter') sendChatMessage()">
+                    <button id="chat-send-btn" onclick="sendChatMessage()">전송</button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -107,48 +149,74 @@
         const playerImg = new Image();
         playerImg.src = './1734.png'; 
         
-        let animTimer = 0; 
-
+        let animTimer = 0, lastTime = Date.now();
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
+        const mCanvas = document.getElementById('minimap-canvas');
+        const mCtx = mCanvas.getContext('2d');
+
         function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
         window.addEventListener('resize', resize); resize();
 
-        const COLORS = [
-            '#c51111', '#132ed1', '#117f2d', '#ed54ba', '#ef7d0d', 
-            '#f5f557', '#3f474e', '#d6e0f0', '#6b2fbb', '#71491e', 
-            '#38fedc', '#50ef39', '#751431', '#ffdfcc', '#1e40a6', 
-            '#267022', '#7b4097', '#d99d36', '#a1aba3', '#000000'
-        ];
+        // 오디오 시스템
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function playSound(type) {
+            try {
+                let osc = audioCtx.createOscillator(); let gain = audioCtx.createGain();
+                osc.connect(gain); gain.connect(audioCtx.destination);
+                if (type === 'kill') {
+                    osc.type = 'sawtooth'; osc.frequency.setValueAtTime(160, audioCtx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.2);
+                    gain.gain.setValueAtTime(0.4, audioCtx.currentTime); gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.2);
+                    osc.start(); osc.stop(audioCtx.currentTime + 0.2);
+                } else if (type === 'report') {
+                    osc.type = 'triangle'; osc.frequency.setValueAtTime(580, audioCtx.currentTime);
+                    osc.frequency.setValueAtTime(880, audioCtx.currentTime + 0.15);
+                    gain.gain.setValueAtTime(0.3, audioCtx.currentTime); gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.4);
+                    osc.start(); osc.stop(audioCtx.currentTime + 0.4);
+                } else if (type === 'sabotage') {
+                    osc.type = 'sine'; osc.frequency.setValueAtTime(220, audioCtx.currentTime);
+                    osc.frequency.linearRampToValueAtTime(110, audioCtx.currentTime + 0.5);
+                    gain.gain.setValueAtTime(0.3, audioCtx.currentTime); gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.6);
+                    osc.start(); osc.stop(audioCtx.currentTime + 0.6);
+                } else if (type === 'task') {
+                    osc.type = 'sine'; osc.frequency.setValueAtTime(523.25, audioCtx.currentTime);
+                    osc.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.1);
+                    gain.gain.setValueAtTime(0.2, audioCtx.currentTime); gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.35);
+                    osc.start(); osc.stop(audioCtx.currentTime + 0.35);
+                }
+            } catch(e){}
+        }
+
+        const COLORS = ['#c51111', '#132ed1', '#117f2d', '#ed54ba', '#ef7d0d', '#f5f557', '#3f474e', '#d6e0f0', '#6b2fbb', '#71491e', '#38fedc', '#50ef39'];
         const WORLD_SIZE = 3000;
-        const VISION_RADIUS = 350; // 캐릭터 시야 제한 거리
-        
         let peer = null, isHost = false, myId = null, hostConn = null, clients = {};
         
-        // --- 맵 벽 데이터 (시야 차단 및 충돌 처리에 사용) ---
+        // 구조화된 입체 벽면 레이아웃
         const walls = [
-            { x: 500, y: 500, w: 200, h: 600 }, 
-            { x: 1200, y: 300, w: 800, h: 200 }, 
-            { x: 800, y: 1300, w: 600, h: 200 }
+            { x: 500, y: 500, w: 200, h: 600, type: 'engine' }, 
+            { x: 1200, y: 300, w: 800, h: 200, type: 'reactor' }, 
+            { x: 800, y: 1300, w: 600, h: 200, type: 'storage' }
         ];
-        
         const taskZones = [
-            { id: 1, x: 800, y: 600, w: 150, h: 150, name: "배선 수리", color: "rgba(46, 213, 115, 0.3)" },
-            { id: 2, x: 1500, y: 600, w: 150, h: 150, name: "데이터", color: "rgba(46, 213, 115, 0.3)" }
+            { id: 1, x: 800, y: 600, w: 150, h: 150, name: "배선 수리", color: "rgba(46, 213, 115, 0.25)" },
+            { id: 2, x: 1500, y: 600, w: 150, h: 150, name: "데이터", color: "rgba(52, 152, 219, 0.25)" },
+            { id: 99, x: 400, y: 1400, w: 150, h: 150, name: "⚡ 배선실 (정전 복구)", color: "rgba(235, 94, 85, 0.25)" }
         ];
+        const vents = [{ id: 0, x: 450, y: 450 }, { id: 1, x: 1150, y: 250 }, { id: 2, x: 750, y: 1250 }];
 
-        let gameState = { phase: 'Lobby', imposters: [], players: {}, corpses: [], tasksTotal: 0, tasksCompleted: 0, votes: {}, winner: "" };
+        let gameState = { 
+            phase: 'Lobby', imposters: [], players: {}, corpses: [], 
+            tasksTotal: 0, tasksCompleted: 0, votes: {}, winner: "",
+            isLightsOut: false, sabotageCooldown: 0
+        };
         let myLocalTasks = [], myVote = null, currentTaskId = null;
 
         const keys = { w: false, a: false, s: false, d: false };
         window.addEventListener('keydown', e => {
-            const k = e.key.toLowerCase();
-            if (keys.hasOwnProperty(k)) keys[k] = true;
+            const k = e.key.toLowerCase(); if (keys.hasOwnProperty(k)) keys[k] = true;
             if (gameState.phase !== 'Playing' || !myId || !gameState.players[myId] || gameState.players[myId].isDead) return;
-
-            if (k === ' ') sendAction('kill');
-            if (k === 'r') sendAction('report');
-            if (k === 'e') performTask();
+            if (k === ' ') sendAction('kill'); if (k === 'r') sendAction('report'); if (k === 'e') performTask(); if (k === 'v') toggleVent(); if (k === 'g') sendAction('sabotage_lights');
         });
         window.addEventListener('keyup', e => { if (keys.hasOwnProperty(e.key.toLowerCase())) keys[e.key.toLowerCase()] = false; });
 
@@ -160,16 +228,12 @@
             peer.on('open', (id) => {
                 isHost = true; myId = id;
                 document.getElementById('menu-ui').style.display = 'none'; document.getElementById('game-ui').style.display = 'block';
+                document.getElementById('minimap-container').style.display = 'block';
                 document.getElementById('room-info').innerText = `🏠 방 코드: ${code}`;
                 addPlayer(myId, document.getElementById('nickname').value || 'Host');
                 startGameLoop();
             });
             peer.on('connection', (conn) => {
-                if (Object.keys(clients).length >= 19 || gameState.phase !== 'Lobby') {
-                    conn.send({ type: 'error', msg: '방이 가득 찼거나 게임이 시작되었습니다.' }); 
-                    setTimeout(() => conn.close(), 500); 
-                    return;
-                }
                 conn.on('open', () => {
                     clients[conn.peer] = conn;
                     conn.on('data', (data) => {
@@ -177,10 +241,11 @@
                         else if (data.type === 'input') handleMovement(conn.peer, data.keys);
                         else if (data.type === 'action') processAction(conn.peer, data.action);
                         else if (data.type === 'vote') handleVote(conn.peer, data.targetId);
-                        else if (data.type === 'task_complete') { gameState.tasksCompleted++; checkWinCondition(); }
+                        else if (data.type === 'chat') relayChatMessage(conn.peer, data.msg);
+                        else if (data.type === 'task_complete') { gameState.tasksCompleted++; checkWinCondition(); playSound('task'); }
+                        else if (data.type === 'vent_toggle') handleVentToggle(conn.peer);
                     });
                 });
-                conn.on('close', () => { delete clients[conn.peer]; delete gameState.players[conn.peer]; });
             });
         }
 
@@ -190,116 +255,97 @@
             peer.on('open', (id) => {
                 myId = id; hostConn = peer.connect('AMONG-' + code);
                 hostConn.on('open', () => {
-                    isHost = false; document.getElementById('menu-ui').style.display = 'none'; document.getElementById('game-ui').style.display = 'block';
+                    document.getElementById('menu-ui').style.display = 'none'; document.getElementById('game-ui').style.display = 'block';
+                    document.getElementById('minimap-container').style.display = 'block';
                     hostConn.send({ type: 'join', name: document.getElementById('nickname').value || 'Crewmate' });
                     startGameLoop();
                 });
-                hostConn.on('data', (data) => { if (data.type === 'state') updateLocalState(data.state); });
+                hostConn.on('data', (data) => { 
+                    if (data.type === 'state') updateLocalState(data.state); 
+                    if (data.type === 'chat_broadcast') appendChatMessage(data.senderName, data.msg, data.color);
+                    if (data.type === 'sound') playSound(data.soundType);
+                    if (data.type === 'cutscene') triggerCutsceneUI();
+                });
             });
         }
 
         function addPlayer(id, name) {
             const used = Object.values(gameState.players).map(p => p.color);
             const color = COLORS.find(c => !used.includes(c)) || '#ffffff';
-            gameState.players[id] = { x: WORLD_SIZE/2, y: WORLD_SIZE/2, color, name, isDead: false, facing: 1, isMoving: false };
+            gameState.players[id] = { x: WORLD_SIZE/2, y: WORLD_SIZE/2, color, name, isDead: false, facing: 1, isMoving: false, inVent: -1 };
         }
 
         function hostStartGame() {
             const pIds = Object.keys(gameState.players);
-            if (pIds.length < 5) { alert("최소 5명이 모여야 게임을 시작할 수 있습니다! (현재 " + pIds.length + "명)"); return; }
-
-            gameState.phase = 'Playing'; gameState.corpses = []; gameState.votes = {};
-            gameState.tasksCompleted = 0; gameState.tasksTotal = pIds.length * taskZones.length;
-            
+            if (pIds.length < 1) return;
+            gameState.phase = 'Playing'; gameState.corpses = []; gameState.votes = {}; gameState.isLightsOut = false;
+            gameState.sabotageCooldown = 10; gameState.tasksCompleted = 0; gameState.tasksTotal = pIds.length * (taskZones.length - 1);
             gameState.imposters = [pIds[Math.floor(Math.random() * pIds.length)]];
-            pIds.forEach(id => { gameState.players[id].x = WORLD_SIZE/2 + Math.random()*200; gameState.players[id].isDead = false; });
+            pIds.forEach(id => { gameState.players[id].x = WORLD_SIZE/2 + Math.random()*200; gameState.players[id].isDead = false; gameState.players[id].inVent = -1; });
+            document.getElementById('chat-box').innerHTML = '';
         }
 
-        // --- 🛠️ 개선 1: 완벽한 벽 충돌 알고리즘 (AABB Collision) ---
         function checkCollision(x, y, size) {
-            // 월드 맵 바깥 예외 처리
             if (x - size < 0 || x + size > WORLD_SIZE || y - size < 0 || y + size > WORLD_SIZE) return true;
-            
-            // 등록된 모든 벽들과 충돌 여부 판단
-            for (let w of walls) {
-                if (x + size > w.x && x - size < w.x + w.w &&
-                    y + size > w.y && y - size < w.y + w.h) {
-                    return true; 
-                }
-            }
+            for (let w of walls) { if (x + size > w.x && x - size < w.x + w.w && y + size > w.y && y - size < w.y + w.h) return true; }
             return false;
         }
 
         function handleMovement(id, k) {
-            const p = gameState.players[id];
-            if (!p || p.isDead || gameState.phase !== 'Playing') return;
+            const p = gameState.players[id]; if (!p || p.isDead || gameState.phase !== 'Playing') return;
+            if (p.inVent !== -1) {
+                let nextVent = p.inVent;
+                if (k.d || k.s) { nextVent = (p.inVent + 1) % vents.length; keys.d = keys.s = false; }
+                if (k.a || k.w) { nextVent = (p.inVent - 1 + vents.length) % vents.length; keys.a = keys.w = false; }
+                if (nextVent !== p.inVent) { p.inVent = nextVent; p.x = vents[nextVent].x; p.y = vents[nextVent].y; }
+                return;
+            }
             let dx = 0, dy = 0, speed = 6;
-            
             if (k.w) dy -= speed; if (k.s) dy += speed;
             if (k.a) { dx -= speed; p.facing = -1; } if (k.d) { dx += speed; p.facing = 1; }
             if (dx !== 0 && dy !== 0) { dx *= 0.707; dy *= 0.707; }
-
             p.isMoving = (dx !== 0 || dy !== 0);
-
-            // X축 이동 연산 및 충돌 검사 (캐릭터 히트박스 반경 18px 기준)
-            if (!checkCollision(p.x + dx, p.y, 18)) {
-                p.x += dx;
-            }
-            // Y축 이동 연산 및 충돌 검사
-            if (!checkCollision(p.x, p.y + dy, 18)) {
-                p.y += dy;
-            }
+            if (!checkCollision(p.x + dx, p.y, 18)) p.x += dx; if (!checkCollision(p.x, p.y + dy, 18)) p.y += dy;
         }
 
-        // --- 🛠️ 개선 2: 2D 시야 가림 판단용 선분 가로지름 알고리즘 ---
-        function isLineIntersecting(p1, p2, wall) {
-            // 벽의 4칸 선분 경계선 정의
-            const lines = [
-                {x1: wall.x, y1: wall.y, x2: wall.x + wall.w, y2: wall.y},
-                {x1: wall.x + wall.w, y1: wall.y, x2: wall.x + wall.w, y2: wall.y + wall.h},
-                {x1: wall.x + wall.w, y1: wall.y + wall.h, x2: wall.x, y2: wall.y + wall.h},
-                {x1: wall.x, y1: wall.y + wall.h, x2: wall.x, y2: wall.y}
-            ];
-
-            for (let l of lines) {
-                let det = (p2.x - p1.x) * (l.y2 - l.y1) - (l.x2 - l.x1) * (p2.y - p1.y);
-                if (det === 0) continue; // 평행함
-                
-                let u = ((l.x1 - p1.x) * (l.y2 - l.y1) - (l.x2 - l.x1) * (l.y1 - p1.y)) / det;
-                let v = ((l.x1 - p1.x) * (p2.y - p1.y) - (p2.x - p1.x) * (l.y1 - p1.y)) / det;
-
-                if (u >= 0 && u <= 1 && v >= 0 && v <= 1) return true; // 선이 벽에 교차함
-            }
-            return false;
+        function handleVentToggle(id) {
+            const p = gameState.players[id]; if (!p || p.isDead) return;
+            if (p.inVent !== -1) { p.inVent = -1; } 
+            else { vents.forEach(v => { if (Math.hypot(p.x - v.x, p.y - v.y) < 60) { p.inVent = v.id; p.x = v.x; p.y = v.y; } }); }
         }
+        function toggleVent() { if (!gameState.imposters.includes(myId)) return; isHost ? handleVentToggle(myId) : hostConn.send({ type: 'vent_toggle' }); }
 
-        // 나와 타겟 사이에 벽이 가로막고 있는지 체크하는 함수
-        function checkInSight(voterX, voterY, targetX, targetY) {
-            if (Math.hypot(voterX - targetX, voterY - targetY) > VISION_RADIUS) return false;
-            for (let w of walls) {
-                if (isLineIntersecting({x: voterX, y: voterY}, {x: targetX, y: targetY}, w)) {
-                    return false; 
-                }
-            }
-            return true;
+        function checkInSight(voterX, voterY, targetX, targetY, isImposterVoter = false) {
+            let baseRadius = (gameState.isLightsOut && !isImposterVoter) ? 100 : 350;
+            return Math.hypot(voterX - targetX, voterY - targetY) <= baseRadius;
         }
 
         function processAction(id, action) {
-            const p = gameState.players[id];
-            if (!p || p.isDead) return;
-            if (action === 'kill' && gameState.imposters.includes(id)) {
+            const p = gameState.players[id]; if (!p || p.isDead) return;
+            if (action === 'kill' && gameState.imposters.includes(id) && p.inVent === -1) {
                 for (let tId in gameState.players) {
-                    if (tId !== id && !gameState.players[tId].isDead && !gameState.imposters.includes(tId) && Math.hypot(p.x - gameState.players[tId].x, p.y - gameState.players[tId].y) < 120) {
-                        // 킬 연산 시에도 보이지 않는 벽 너머는 킬 불가능하게 시야 체크
-                        if (!checkInSight(p.x, p.y, gameState.players[tId].x, gameState.players[tId].y)) continue;
+                    if (tId !== id && !gameState.players[tId].isDead && !gameState.imposters.includes(tId) && gameState.players[tId].inVent === -1 && Math.hypot(p.x - gameState.players[tId].x, p.y - gameState.players[tId].y) < 120) {
                         gameState.players[tId].isDead = true;
-                        gameState.corpses.push({ x: gameState.players[tId].x, y: gameState.players[tId].y });
-                        checkWinCondition(); break;
+                        gameState.corpses.push({ x: gameState.players[tId].x, y: gameState.players[tId].y, color: gameState.players[tId].color });
+                        broadcastSound('kill'); checkWinCondition(); break;
                     }
                 }
-            } else if (action === 'report') {
-                for (let c of gameState.corpses) if (Math.hypot(p.x - c.x, p.y - c.y) < 150) { startMeeting(); break; }
-            }
+            } else if (action === 'report' && p.inVent === -1) {
+                for (let c of gameState.corpses) {
+                    if (Math.hypot(p.x - c.x, p.y - c.y) < 150) { broadcastCutscene(); startMeeting(); break; }
+                }
+            } else if (action === 'sabotage_lights' && gameState.imposters.includes(id)) {
+                if (gameState.sabotageCooldown <= 0 && !gameState.isLightsOut) { gameState.isLightsOut = true; gameState.sabotageCooldown = 30; broadcastSound('sabotage'); }
+            } else if (action === 'fix_lights_complete') { gameState.isLightsOut = false; }
+        }
+
+        function broadcastSound(st) { playSound(st); for(let cid in clients) clients[cid].send({type:'sound', soundType:st}); }
+        function broadcastCutscene() { triggerCutsceneUI(); for(let cid in clients) clients[cid].send({type:'cutscene'}); }
+        
+        function triggerCutsceneUI() {
+            playSound('report');
+            const cut = document.getElementById('cutscene-overlay'); cut.style.display = 'flex';
+            setTimeout(() => cut.style.display = 'none', 2500);
         }
 
         function checkWinCondition() {
@@ -312,9 +358,8 @@
         function triggerGameOver(text) { gameState.phase = 'GameOver'; gameState.winner = text; setTimeout(() => { gameState.phase = 'Lobby'; myLocalTasks = []; }, 5000); }
 
         function startMeeting() {
-            gameState.phase = 'Voting'; gameState.votes = {};
-            for (let id in gameState.players) if (!gameState.players[id].isDead) { gameState.players[id].x = WORLD_SIZE/2; gameState.players[id].y = WORLD_SIZE/2; }
-            setTimeout(() => { if (gameState.phase === 'Voting') tallyVotes(); }, 15000);
+            gameState.phase = 'Voting'; gameState.votes = {}; gameState.isLightsOut = false;
+            for (let id in gameState.players) if (!gameState.players[id].isDead) { gameState.players[id].x = WORLD_SIZE/2; gameState.players[id].y = WORLD_SIZE/2; gameState.players[id].inVent = -1; }
         }
 
         function handleVote(voterId, targetId) {
@@ -323,13 +368,29 @@
                 if (Object.keys(gameState.votes).length >= Object.values(gameState.players).filter(p=>!p.isDead).length) tallyVotes();
             }
         }
-
         function tallyVotes() {
             let counts = {}; for (let v in gameState.votes) counts[gameState.votes[v]] = (counts[gameState.votes[v]] || 0) + 1;
             let max = 0, ejected = null;
             for (let id in counts) if (counts[id] > max) { max = counts[id]; ejected = id; }
             if (ejected && ejected !== 'SKIP') gameState.players[ejected].isDead = true;
             gameState.corpses = []; checkWinCondition(); if (gameState.phase === 'Voting') gameState.phase = 'Playing';
+        }
+
+        function sendChatMessage() {
+            const input = document.getElementById('chat-input'); const msg = input.value.trim(); if(!msg) return;
+            if(isHost) { relayChatMessage(myId, msg); } else { hostConn.send({ type: 'chat', msg: msg }); }
+            input.value = '';
+        }
+        function relayChatMessage(senderId, msg) {
+            const sender = gameState.players[senderId]; if(!sender) return;
+            appendChatMessage(sender.name, msg, sender.color);
+            for(let cid in clients) clients[cid].send({ type: 'chat_broadcast', senderName: sender.name, msg: msg, color: sender.color });
+        }
+        function appendChatMessage(name, msg, color) {
+            const box = document.getElementById('chat-box');
+            const div = document.createElement('div'); div.className = 'chat-msg';
+            div.innerHTML = `<strong style="color:${color}">${name}</strong>: <span style="color:#fff">${msg}</span>`;
+            box.appendChild(div); box.scrollTop = box.scrollHeight;
         }
 
         function updateLocalState(newState) {
@@ -341,19 +402,24 @@
         }
 
         function performTask() {
-            const me = gameState.players[myId];
-            if (gameState.imposters.includes(myId) || me.isDead) return;
+            const me = gameState.players[myId]; if (me.isDead || me.inVent !== -1) return;
             for (let t of taskZones) {
-                if (!myLocalTasks.includes(t.id) && me.x > t.x && me.x < t.x+t.w && me.y > t.y && me.y < t.y+t.h) {
-                    document.getElementById('minigame-popup').style.display = 'block'; 
-                    currentTaskId = t.id; break;
+                if (me.x > t.x && me.x < t.x+t.w && me.y > t.y && me.y < t.y+t.h) {
+                    if (t.id === 99) { if (!gameState.isLightsOut) return; document.getElementById('minigame-title').innerText = "⚡ 정전 복구 스위치"; } 
+                    else { if (gameState.imposters.includes(myId) || myLocalTasks.includes(t.id)) return; document.getElementById('minigame-title').innerText = `🔧 미션: ${t.name}`; }
+                    document.getElementById('minigame-popup').style.display = 'block'; currentTaskId = t.id; break;
                 }
             }
         }
         function finishMinigame() {
             if (currentTaskId !== null) {
-                myLocalTasks.push(currentTaskId);
-                isHost ? (gameState.tasksCompleted++, checkWinCondition()) : hostConn.send({ type: 'task_complete' });
+                if (currentTaskId === 99) {
+                    isHost ? (gameState.isLightsOut = false) : hostConn.send({ type: 'action', action: 'fix_lights_complete' });
+                    gameState.isLightsOut = false; playSound('task');
+                } else {
+                    myLocalTasks.push(currentTaskId);
+                    if(isHost) { gameState.tasksCompleted++; checkWinCondition(); playSound('task'); } else { hostConn.send({ type: 'task_complete' }); }
+                }
                 closeMinigame();
             }
         }
@@ -372,17 +438,36 @@
         }
         function castVote(tid) { if (myVote || gameState.players[myId].isDead) return; myVote = tid; isHost ? handleVote(myId, tid) : hostConn.send({ type: 'vote', targetId: tid }); }
 
+        function drawMinimap(me) {
+            mCtx.clearRect(0,0,160,160); mCtx.fillStyle = 'rgba(10, 12, 18, 0.9)'; mCtx.fillRect(0,0,160,160);
+            if(!me) return; const ratio = 160 / WORLD_SIZE;
+            taskZones.forEach(z => {
+                if(z.id === 99 && gameState.isLightsOut) { mCtx.fillStyle = (Math.floor(Date.now()/300) % 2 === 0) ? '#ff4757' : '#2f3542'; } 
+                else { mCtx.fillStyle = '#ffa502'; }
+                mCtx.fillRect(z.x * ratio, z.y * ratio, z.w * ratio, z.h * ratio);
+            });
+            mCtx.fillStyle = '#2ed573'; mCtx.beginPath(); mCtx.arc(me.x * ratio, me.y * ratio, 4, 0, Math.PI*2); mCtx.fill();
+        }
+
         function updateUI() {
-            document.getElementById('player-list').innerText = `인원수: ${Object.keys(gameState.players).length} / 20 명`;
-            if (gameState.phase === 'Lobby') {
-                document.getElementById('host-start-btn').style.display = isHost ? 'block' : 'none';
-            } else if (gameState.phase === 'Playing') {
-                document.getElementById('host-start-btn').style.display = 'none';
-                document.getElementById('task-bar-container').style.display = 'block';
+            document.getElementById('player-list').innerText = `인원수: ${Object.keys(gameState.players).length} / 12 명`;
+            document.getElementById('sabotage-alert').style.display = gameState.isLightsOut ? 'block' : 'none';
+            if (gameState.phase === 'Lobby') { document.getElementById('host-start-btn').style.display = isHost ? 'block' : 'none'; } 
+            else if (gameState.phase === 'Playing') {
+                document.getElementById('host-start-btn').style.display = 'none'; document.getElementById('task-bar-container').style.display = 'block';
                 if (gameState.tasksTotal > 0) document.getElementById('task-bar-fill').style.width = `${(gameState.tasksCompleted / gameState.tasksTotal) * 100}%`;
-                
-                if (gameState.imposters.includes(myId)) { document.getElementById('kill-btn').style.display = 'flex'; document.getElementById('report-btn').style.display = 'flex'; }
-                else { document.getElementById('task-btn').style.display = 'flex'; document.getElementById('report-btn').style.display = 'flex'; }
+                const me = gameState.players[myId]; document.getElementById('report-btn').style.display = (me && !me.isDead && me.inVent === -1) ? 'flex' : 'none';
+                if (gameState.imposters.includes(myId)) {
+                    document.getElementById('kill-btn').style.display = (me && me.inVent === -1) ? 'flex' : 'none';
+                    document.getElementById('sabotage-btn').style.display = 'flex'; document.getElementById('vent-btn').style.display = 'flex'; document.getElementById('task-btn').style.display = 'none';
+                    const sabBtn = document.getElementById('sabotage-btn');
+                    if (gameState.sabotageCooldown > 0 || gameState.isLightsOut) {
+                        sabBtn.classList.add('disabled'); sabBtn.innerHTML = `LIGHTS<br>[ ${Math.ceil(gameState.sabotageCooldown)}s ]`;
+                    } else { sabBtn.classList.remove('disabled'); sabBtn.innerHTML = `LIGHTS<br>[ G ]`; }
+                } else {
+                    document.getElementById('kill-btn').style.display = 'none'; document.getElementById('sabotage-btn').style.display = 'none';
+                    document.getElementById('vent-btn').style.display = 'none'; document.getElementById('task-btn').style.display = 'flex';
+                }
             }
         }
 
@@ -390,89 +475,150 @@
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             
-            // 기본 맵 바닥
-            ctx.fillStyle = '#1e272e'; ctx.fillRect(-camera.x, -camera.y, WORLD_SIZE, WORLD_SIZE);
+            // 1. ⚙️ 고퀄리티 우주선 철판 바닥 격자 및 나사 텍스처 렌더링
+            ctx.fillStyle = '#1e212b'; ctx.fillRect(-camera.x, -camera.y, WORLD_SIZE, WORLD_SIZE);
+            ctx.strokeStyle = '#282c37'; ctx.lineWidth = 2;
+            let tileSize = 150;
+            let startX = Math.max(0, Math.floor(camera.x / tileSize) * tileSize);
+            let endX = Math.min(WORLD_SIZE, Math.ceil((camera.x + canvas.width) / tileSize) * tileSize);
+            let startY = Math.max(0, Math.floor(camera.y / tileSize) * tileSize);
+            let endY = Math.min(WORLD_SIZE, Math.ceil((camera.y + canvas.height) / tileSize) * tileSize);
             
-            // 미션 구역 그리기
-            taskZones.forEach(t => { ctx.fillStyle = t.color; ctx.fillRect(t.x - camera.x, t.y - camera.y, t.w, t.h); });
+            for (let x = startX; x < endX; x += tileSize) {
+                for (let y = startY; y < endY; y += tileSize) {
+                    ctx.strokeRect(x - camera.x, y - camera.y, tileSize, tileSize);
+                    // 타일 네 모퉁이에 미세한 용접 리벳 구멍 연출
+                    ctx.fillStyle = '#15171e';
+                    ctx.fillRect(x - camera.x + 4, y - camera.y + 4, 3, 3);
+                    ctx.fillRect(x - camera.x + tileSize - 6, y - camera.y + 4, 3, 3);
+                }
+            }
 
-            // 구조용 장애물 벽 렌더링
-            ctx.fillStyle = '#4b6584';
-            walls.forEach(w => { ctx.fillRect(w.x - camera.x, w.y - camera.y, w.w, w.h); });
+            // 2. ✨ 은은한 미션존 라이팅 필터 효과
+            taskZones.forEach(t => {
+                let pulse = 2 * Math.sin(Date.now() / 200);
+                let grad = ctx.createRadialGradient(t.x + t.w/2 - camera.x, t.y + t.h/2 - camera.y, 10, t.x + t.w/2 - camera.x, t.y + t.h/2 - camera.y, t.w/1.2 + pulse);
+                grad.addColorStop(0, t.color); grad.addColorStop(1, 'transparent');
+                ctx.fillStyle = grad; ctx.fillRect(t.x - camera.x - 20, t.y - camera.y - 20, t.w + 40, t.h + 40);
+                
+                // 테두리 경계선 가이드라인 추가
+                ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 1;
+                ctx.strokeRect(t.x - camera.x, t.y - camera.y, t.w, t.h);
+            });
+
+            // 3. 🌀 환풍구 해치 퀄리티 업그레이드 (그릴 스케일링)
+            vents.forEach(v => {
+                let vx = v.x - camera.x, vy = v.y - camera.y;
+                ctx.fillStyle = '#2d3238'; ctx.beginPath(); ctx.arc(vx, vy, 28, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = '#0f1115'; ctx.beginPath(); ctx.arc(vx, vy, 24, 0, Math.PI*2); ctx.fill();
+                // 내부 공기 순환기 철창 패턴 추가
+                ctx.strokeStyle = '#4b5563'; ctx.lineWidth = 3;
+                for(let i = -15; i <= 15; i += 6) {
+                    ctx.beginPath(); ctx.moveTo(vx + i, vy - Math.sqrt(576 - i*i)); ctx.lineTo(vx + i, vy + Math.sqrt(576 - i*i)); ctx.stroke();
+                }
+            });
+
+            // 4. 🧱 2.5D 입체 사이버 벽면 및 장애물 기계 장치 드로잉
+            walls.forEach(w => {
+                let wx = w.x - camera.x, wy = w.y - camera.y;
+                // 바닥 그림자 레이어
+                ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.fillRect(wx - 10, wy - 10, w.w + 20, w.h + 20);
+                // 메인 본체 벽면 색상
+                ctx.fillStyle = '#3a4454'; ctx.fillRect(wx, wy, w.w, w.h);
+                // 3D 입체 상단 캡 볼륨 레이어
+                ctx.fillStyle = '#4e5d73'; ctx.fillRect(wx, wy, w.w, 12);
+                ctx.fillStyle = '#2c3542'; ctx.fillRect(wx, wy + w.h - 8, w.w, 8);
+                // 하이라이트 베젤 테두리 마감
+                ctx.strokeStyle = '#637594'; ctx.lineWidth = 2; ctx.strokeRect(wx, wy, w.w, w.h);
+
+                // 벽면 유형별 기계 장치 부속 추가 (디테일 업그레이드)
+                if(w.type === 'engine') {
+                    ctx.fillStyle = '#10b981'; // 작동 중인 발전기 에너지 코어 코일
+                    let cycle = Math.sin(Date.now()/150) * 4;
+                    ctx.fillRect(wx + 40, wy + 80, 120, 40 + cycle);
+                    ctx.fillStyle = '#047857'; ctx.fillRect(wx + 50, wy + 90, 100, 5);
+                } else if(w.type === 'reactor') {
+                    ctx.fillStyle = '#3b82f6'; // 원자로 메인 데이터 계기판 모니터 스크린
+                    ctx.fillRect(wx + 80, wy + 60, 140, 70);
+                    ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1;
+                    ctx.beginPath(); // 모니터 그리드 파형 그래프 가시화
+                    ctx.moveTo(wx + 85, wy + 95);
+                    for(let i=0; i<130; i+=15) ctx.lineTo(wx + 85 + i, wy + 95 + Math.sin(Date.now()/100 + i)*15);
+                    ctx.stroke();
+                } else if(w.type === 'storage') {
+                    // 화물실 금속 컨테이너 가스 공급 파이프 커넥터
+                    ctx.fillStyle = '#f59e0b'; ctx.fillRect(wx + 30, wy + 40, 50, 120);
+                    ctx.fillStyle = '#ef4444'; ctx.fillRect(wx + 100, wy + 40, 50, 120);
+                    ctx.fillStyle = '#475569'; ctx.fillRect(wx + 10, wy + 90, w.w - 20, 20);
+                }
+            });
+
+            // 5. 🍖 시체 아트 시스템
+            gameState.corpses.forEach(c => {
+                let cx = c.x - camera.x, cy = c.y - camera.y;
+                ctx.save();
+                ctx.fillStyle = c.color; ctx.beginPath(); ctx.arc(cx, cy + 5, 16, Math.PI, 0, false); ctx.fill();
+                ctx.fillRect(cx - 16, cy + 5, 32, 10);
+                ctx.fillStyle = '#ffffff'; ctx.fillRect(cx - 3, cy - 10, 6, 15);
+                ctx.beginPath(); ctx.arc(cx - 3, cy - 10, 4, 0, Math.PI*2); ctx.arc(cx + 3, cy - 10, 4, 0, Math.PI*2); ctx.fill();
+                ctx.restore();
+            });
 
             animTimer += 0.15;
-            const myPlayer = gameState.players[myId];
+            const myPlayer = gameState.players[myId]; const isMyPlayerImposter = gameState.imposters.includes(myId);
 
-            // 렌더링 루프 루프
             for (let [id, p] of Object.entries(gameState.players)) {
-                if (p.isDead) continue;
-
-                // 게임이 시작되었고 대기방 상태가 아니라면 나의 시야 내부에 존재하는지 확인
+                if (p.isDead || p.inVent !== -1) continue;
                 if (gameState.phase === 'Playing' && myPlayer && id !== myId) {
-                    if (!checkInSight(myPlayer.x, myPlayer.y, p.x, p.y)) continue; // 벽에 가려지면 드로잉 생략
+                    if (!checkInSight(myPlayer.x, myPlayer.y, p.x, p.y, isMyPlayerImposter)) continue;
                 }
-
                 const rx = p.x - camera.x, ry = p.y - camera.y;
-                
                 ctx.save();
-                ctx.font = 'bold 16px Nunito'; ctx.textAlign = 'center'; ctx.fillStyle = 'white';
+                ctx.font = 'bold 16px Nunito'; ctx.textAlign = 'center'; ctx.fillStyle = gameState.imposters.includes(id) && isMyPlayerImposter ? '#ff4757' : 'white';
                 ctx.fillText(p.name, rx, ry - 45);
                 
                 if (playerImg.complete && playerImg.naturalWidth !== 0) {
-                    const cols = 5; const rows = 2;
-                    const frameWidth = playerImg.width / cols; 
-                    const frameHeight = playerImg.height / rows;
-                    const aspectRatio = frameWidth / frameHeight;
-                    
-                    const displayHeight = 60;
-                    const displayWidth = displayHeight * aspectRatio;
-
+                    const cols = 5; const rows = 2; const frameWidth = playerImg.width / cols; const frameHeight = playerImg.height / rows;
+                    const aspectRatio = frameWidth / frameHeight; const displayHeight = 60; const displayWidth = displayHeight * aspectRatio;
                     let frameIndex = p.isMoving ? Math.floor(animTimer) % 10 : 0;
                     let col = frameIndex % cols; let row = Math.floor(frameIndex / cols);
-                    let cutX = col * frameWidth; let cutY = row * frameHeight;
-
                     if (p.facing === -1) {
                         ctx.translate(rx, ry); ctx.scale(-1, 1);
-                        ctx.drawImage(playerImg, cutX, cutY, frameWidth, frameHeight, -(displayWidth / 2), -(displayHeight / 2), displayWidth, displayHeight);
+                        ctx.drawImage(playerImg, col * frameWidth, row * frameHeight, frameWidth, frameHeight, -(displayWidth / 2), -(displayHeight / 2), displayWidth, displayHeight);
                     } else {
-                        ctx.drawImage(playerImg, cutX, cutY, frameWidth, frameHeight, rx - (displayWidth / 2), ry - (displayHeight / 2), displayWidth, displayHeight);
+                        ctx.drawImage(playerImg, col * frameWidth, row * frameHeight, frameWidth, frameHeight, rx - (displayWidth / 2), ry - (displayHeight / 2), displayWidth, displayHeight);
                     }
-                } else {
-                    ctx.fillStyle = p.color; ctx.fillRect(rx - 25, ry - 30, 50, 60);
-                }
+                } else { ctx.fillStyle = p.color; ctx.fillRect(rx - 25, ry - 30, 50, 60); }
                 ctx.restore();
             }
 
-            // --- 🛠️ 개선 3: 내 시야 반경 바깥을 어둡게 덮는 안개 셰이더 효과 ---
+            // 6. 🔦 정전 상태 암전 레이어 시야 각 연산
             if (gameState.phase === 'Playing' && myPlayer) {
                 ctx.save();
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.65)'; // 차단된 영역의 어둠 강도 (0.0 ~ 1.0)
-                
-                // 화면 전체를 덮는 캔버스 구조 생성
-                ctx.beginPath();
-                ctx.rect(0, 0, canvas.width, canvas.height);
-                
-                // 내 위치를 기준으로 시야 구멍 뚫기
-                const mx = myPlayer.x - camera.x;
-                const my = myPlayer.y - camera.y;
-                ctx.arc(mx, my, VISION_RADIUS, 0, Math.PI * 2, true); 
-                
-                ctx.fill();
-                ctx.restore();
+                let currentVisionRadius = (gameState.isLightsOut && !isMyPlayerImposter) ? 100 : 350;
+                ctx.fillStyle = gameState.isLightsOut ? 'rgba(0, 0, 0, 0.96)' : 'rgba(0, 0, 0, 0.65)';
+                ctx.beginPath(); ctx.rect(0, 0, canvas.width, canvas.height);
+                ctx.arc(myPlayer.x - camera.x, myPlayer.y - camera.y, currentVisionRadius, 0, Math.PI * 2, true); ctx.fill(); ctx.restore();
             }
+            
+            if(gameState.phase === 'Playing' && myPlayer) drawMinimap(myPlayer);
         }
 
         function mainLoop() {
-            if (isHost) { handleMovement(myId, keys); for (let id in clients) clients[id].send({ type: 'state', state: gameState }); }
-            else if (hostConn && hostConn.open) { hostConn.send({ type: 'input', keys: keys }); }
+            const now = Date.now(); const delta = (now - lastTime) / 1000; lastTime = now;
+            if (isHost) { 
+                if (gameState.phase === 'Playing' && gameState.sabotageCooldown > 0) {
+                    gameState.sabotageCooldown -= delta; if (gameState.sabotageCooldown < 0) gameState.sabotageCooldown = 0;
+                }
+                handleMovement(myId, keys); for (let id in clients) clients[id].send({ type: 'state', state: gameState }); 
+            } else if (hostConn && hostConn.open) { hostConn.send({ type: 'input', keys: keys }); }
 
             const me = gameState.players[myId];
             if (me) { camera.x += (me.x - canvas.width / 2 - camera.x) * 0.1; camera.y += (me.y - canvas.height / 2 - camera.y) * 0.1; }
-
             updateUI(); draw(); requestAnimationFrame(mainLoop);
         }
 
-        function startGameLoop() { requestAnimationFrame(mainLoop); }
+        function startGameLoop() { lastTime = Date.now(); requestAnimationFrame(mainLoop); }
     </script>
 </body>
 </html>
