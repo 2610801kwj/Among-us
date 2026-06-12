@@ -3,297 +3,369 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Among Us Clone - High Quality Pro</title>
+    <title>8-Player P2P Among Us - Role System</title>
     <style>
-        body {
-            margin: 0;
-            background-color: #000;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            color: white;
-            font-family: 'Arial', sans-serif;
-            overflow: hidden;
-        }
-        canvas {
-            border: 4px solid #222;
-            border-radius: 10px;
-            box-shadow: 0 0 40px rgba(0, 0, 0, 1);
-            background-color: #2b2b30;
-        }
-        #ui {
-            position: absolute;
-            top: 20px;
-            left: 30px;
-            pointer-events: none;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
-            z-index: 10;
-        }
+        body { margin: 0; background-color: #000; color: white; font-family: 'Arial', sans-serif; overflow: hidden; user-select: none; }
+        canvas { display: block; }
+        
+        /* UI 스타일 */
+        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .panel { background: rgba(30, 30, 40, 0.9); padding: 30px; border-radius: 12px; border: 2px solid #555; pointer-events: auto; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.8); }
+        h1 { margin-top: 0; color: #ff4757; text-shadow: 2px 2px 0 #000; }
+        
+        input { padding: 10px; font-size: 16px; border-radius: 6px; border: none; text-align: center; margin-bottom: 15px; width: 200px; text-transform: uppercase; background: #2f3542; color: white; }
+        button { padding: 10px 20px; font-size: 16px; font-weight: bold; background: #1dd1a1; color: white; border: none; border-radius: 6px; cursor: pointer; transition: 0.2s; margin: 5px; }
+        button:hover { background: #10ac84; filter: brightness(1.1); }
+        .btn-host { background: #ff4757; }
+        
+        /* 인게임 UI */
+        #game-ui { position: absolute; top: 10px; left: 10px; pointer-events: none; display: none; text-shadow: 1px 1px 2px black; }
+        #room-info { font-size: 18px; font-weight: bold; color: #1dd1a1; margin-bottom: 5px; }
+        #player-list { font-size: 14px; color: #aaa; margin-bottom: 10px; }
+        #role-info { font-size: 24px; font-weight: bold; color: white; margin-bottom: 10px; display: none; }
+        #host-start-btn { pointer-events: auto; display: none; background: #ff9f43; font-size: 18px; padding: 12px 24px; box-shadow: 0 4px 0 #d35400; }
+        
+        /* 킬 버튼 */
+        #action-btn { position: absolute; bottom: 30px; right: 30px; padding: 20px; border-radius: 50%; width: 80px; height: 80px; background: rgba(255, 71, 87, 0.5); border: 4px solid #ff4757; color: white; font-weight: bold; font-size: 16px; display: none; pointer-events: none; text-align: center; line-height: 35px; box-shadow: 0 0 15px rgba(255,71,87,0.5); }
     </style>
 </head>
 <body>
 
-    <div id="ui">
-        <h2>어몽어스 (시야 & 충돌 시스템)</h2>
-        <p>조작: 방향키 또는 WASD</p>
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="game-ui">
+        <div id="room-info"></div>
+        <div id="player-list"></div>
+        <div id="role-info">대기실 (Lobby)</div>
+        <button id="host-start-btn" onclick="hostStartGame()">🚀 게임 시작</button>
     </div>
 
-    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    <div id="action-btn">KILL<br>(Space)</div>
+
+    <div id="ui-layer">
+        <div class="panel" id="menu-panel">
+            <h1>P2P AMONG US (Max 8)</h1>
+            <div><input type="text" id="nickname" placeholder="닉네임 입력" maxlength="8" value="Player"></div>
+            <hr style="border-color:#444; margin: 20px 0;">
+            <div><button class="btn-host" onclick="createRoom()">방 만들기 (호스트)</button></div>
+            <div style="margin-top: 15px;">
+                <input type="text" id="room-code" placeholder="입장 코드 5자리" maxlength="5"><br>
+                <button onclick="joinRoom()">방 입장 (게스트)</button>
+            </div>
+            <div id="status-msg" style="margin-top: 15px; color: #ffa502; font-weight: bold;"></div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
+        const menuPanel = document.getElementById('menu-panel');
+        const statusMsg = document.getElementById('status-msg');
+        const gameUI = document.getElementById('game-ui');
+        const roleInfo = document.getElementById('role-info');
+        const hostStartBtn = document.getElementById('host-start-btn');
+        const actionBtn = document.getElementById('action-btn');
 
-        const WORLD_WIDTH = 2000;
-        const WORLD_HEIGHT = 2000;
+        function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+        window.addEventListener('resize', resize); resize();
 
-        const keys = {};
-        window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
-        window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+        const COLORS = ['#c51111', '#132ed1', '#117f2d', '#ed54ba', '#ef7d0d', '#f5f557', '#3f474e', '#d6e0f0'];
+        const WORLD_SIZE = 2000;
+        
+        let peer = null, isHost = false, myId = null, hostConn = null, clients = {};
+        
+        // 1. 게임 전역 상태 (대기실/플레이 상태 및 임포스터 배열 추가)
+        let gameState = {
+            phase: 'Lobby', // 'Lobby' 또는 'Playing'
+            imposters: [],  // 임포스터로 뽑힌 유저 ID
+            players: {}, 
+            corpses: []
+        };
 
-        // 장애물(벽) 데이터 배열
-        const walls = [
-            { x: 700, y: 700, w: 400, h: 100, color: '#556' },
-            { x: 700, y: 800, w: 100, h: 300, color: '#556' },
-            { x: 1200, y: 500, w: 150, h: 150, color: '#755' },
-            { x: 400, y: 1200, w: 300, h: 200, color: '#575' }
-        ];
+        const keys = { w: false, a: false, s: false, d: false, ' ': false };
 
-        // 충돌 체크 함수 (AABB 방식)
-        function checkCollision(x, y, w, h) {
-            for (let wall of walls) {
-                if (x < wall.x + wall.w &&
-                    x + w > wall.x &&
-                    y < wall.y + wall.h &&
-                    y + h > wall.y) {
-                    return true;
+        window.addEventListener('keydown', e => {
+            const key = e.key.toLowerCase();
+            if (keys.hasOwnProperty(key)) keys[key] = true;
+            
+            // 킬(스페이스바) 입력: 게임 진행 중이고, 내가 임포스터일 때만 작동
+            if (key === ' ' && myId && gameState.phase === 'Playing') {
+                if (gameState.imposters.includes(myId) && !gameState.players[myId].isDead) {
+                    if (isHost) attemptKill(myId);
+                    else if (hostConn) hostConn.send({ type: 'action', action: 'kill' });
                 }
             }
-            return false;
+        });
+        window.addEventListener('keyup', e => {
+            const key = e.key.toLowerCase();
+            if (keys.hasOwnProperty(key)) keys[key] = false;
+        });
+
+        // ==========================================
+        // 네트워크 로직
+        // ==========================================
+        function createRoom() {
+            const code = Math.random().toString(36).substring(2, 7).toUpperCase();
+            statusMsg.innerText = "방 생성 중...";
+            peer = new Peer('AMONG-' + code);
+            
+            peer.on('open', (id) => {
+                isHost = true; myId = id;
+                enterGameUI(`🏠 방 코드: ${code}`);
+                addPlayerToState(myId, document.getElementById('nickname').value || 'Host');
+                hostStartBtn.style.display = 'block'; // 호스트에게만 시작 버튼 표시
+                startGameLoop();
+            });
+
+            peer.on('connection', (conn) => {
+                if (Object.keys(clients).length >= 7 || gameState.phase !== 'Lobby') {
+                    conn.send({ type: 'error', msg: '방이 꽉 찼거나 이미 게임이 시작되었습니다.' });
+                    setTimeout(() => conn.close(), 500);
+                    return;
+                }
+                conn.on('open', () => {
+                    clients[conn.peer] = conn;
+                    conn.on('data', (data) => {
+                        if (data.type === 'join') addPlayerToState(conn.peer, data.name);
+                        else if (data.type === 'input') handleClientInput(conn.peer, data.keys);
+                        else if (data.type === 'action' && data.action === 'kill') attemptKill(conn.peer);
+                    });
+                });
+                conn.on('close', () => {
+                    delete clients[conn.peer];
+                    delete gameState.players[conn.peer];
+                });
+            });
         }
 
-        class Player {
-            constructor(x, y, color, name) {
-                this.x = x;
-                this.y = y;
-                this.color = color;
-                this.name = name;
-                this.width = 44;
-                this.height = 55;
-                this.speed = 6;
-                this.direction = 'right';
-                this.isMoving = false;
-                this.walkCycle = 0;
+        function joinRoom() {
+            let code = document.getElementById('room-code').value.toUpperCase().trim();
+            if (!code) return;
+            statusMsg.innerText = "접속 중...";
+            peer = new Peer();
+            peer.on('open', (id) => {
+                myId = id;
+                hostConn = peer.connect('AMONG-' + code);
+                hostConn.on('open', () => {
+                    isHost = false;
+                    enterGameUI(`접속된 방: ${code}`);
+                    hostConn.send({ type: 'join', name: document.getElementById('nickname').value || 'Crewmate' });
+                    startGameLoop();
+                });
+                hostConn.on('data', (data) => {
+                    if (data.type === 'state') gameState = data.state;
+                    else if (data.type === 'error') { alert(data.msg); location.reload(); }
+                });
+                hostConn.on('close', () => { alert("호스트 연결 끊김"); location.reload(); });
+            });
+        }
+
+        function enterGameUI(infoText) {
+            menuPanel.style.display = 'none';
+            gameUI.style.display = 'block';
+            roleInfo.style.display = 'block';
+            document.getElementById('room-info').innerText = infoText;
+        }
+
+        // ==========================================
+        // 게임 상태 및 룰 (호스트 전용)
+        // ==========================================
+        function addPlayerToState(id, name) {
+            const usedColors = Object.values(gameState.players).map(p => p.color);
+            const color = COLORS.find(c => !usedColors.includes(c)) || '#ffffff';
+            // 대기실 위치 (중앙 모여있기)
+            gameState.players[id] = { x: WORLD_SIZE/2 + Math.random()*100, y: WORLD_SIZE/2 + Math.random()*100, color, name, isDead: false, facing: 1, isMoving: false };
+        }
+
+        // 2. 방장의 게임 시작 로직 (임포스터 랜덤 배정)
+        function hostStartGame() {
+            const pIds = Object.keys(gameState.players);
+            if (pIds.length < 2) { alert("혼자서는 게임을 시작할 수 없습니다!"); return; }
+
+            gameState.phase = 'Playing';
+            gameState.corpses = [];
+            
+            // 임포스터 1명 무작위 선정
+            const imposterIdx = Math.floor(Math.random() * pIds.length);
+            gameState.imposters = [pIds[imposterIdx]];
+
+            // 모두 중앙 식탁으로 위치 리셋 & 생존 처리
+            pIds.forEach(id => {
+                gameState.players[id].x = WORLD_SIZE / 2;
+                gameState.players[id].y = WORLD_SIZE / 2;
+                gameState.players[id].isDead = false;
+            });
+            
+            hostStartBtn.style.display = 'none'; // 시작 버튼 숨김
+        }
+
+        function handleClientInput(id, clientKeys) {
+            const p = gameState.players[id];
+            if (!p || p.isDead || gameState.phase === 'Lobby') return; // 대기실이나 죽었을 땐 이동 불가
+
+            let dx = 0, dy = 0, speed = 6;
+            if (clientKeys.w) dy -= speed;
+            if (clientKeys.s) dy += speed;
+            if (clientKeys.a) { dx -= speed; p.facing = -1; }
+            if (clientKeys.d) { dx += speed; p.facing = 1; }
+
+            if (dx !== 0 && dy !== 0) { dx *= 0.707; dy *= 0.707; }
+            p.x += dx; p.y += dy;
+            p.isMoving = (dx !== 0 || dy !== 0);
+            p.x = Math.max(20, Math.min(p.x, WORLD_SIZE - 20));
+            p.y = Math.max(30, Math.min(p.y, WORLD_SIZE - 30));
+        }
+
+        // 3. 킬 로직 보강 (임포스터인지 재확인)
+        function attemptKill(attackerId) {
+            if (!gameState.imposters.includes(attackerId)) return;
+            const attacker = gameState.players[attackerId];
+            if (!attacker || attacker.isDead) return;
+
+            for (const [targetId, target] of Object.entries(gameState.players)) {
+                if (targetId !== attackerId && !target.isDead && !gameState.imposters.includes(targetId)) {
+                    if (Math.hypot(attacker.x - target.x, attacker.y - target.y) < 100) {
+                        target.isDead = true;
+                        gameState.corpses.push({ x: target.x, y: target.y, color: target.color });
+                        break;
+                    }
+                }
             }
+        }
 
-            update() {
-                let dx = 0;
-                let dy = 0;
+        function hostUpdate() {
+            handleClientInput(myId, keys);
+            for (let id in clients) clients[id].send({ type: 'state', state: gameState });
+        }
 
-                if (keys['arrowright'] || keys['d']) { dx = this.speed; this.direction = 'right'; }
-                if (keys['arrowleft'] || keys['a']) { dx = -this.speed; this.direction = 'left'; }
-                if (keys['arrowup'] || keys['w']) dy = -this.speed;
-                if (keys['arrowdown'] || keys['s']) dy = this.speed;
-
-                this.isMoving = (dx !== 0 || dy !== 0);
-
-                if (dx !== 0 && dy !== 0) {
-                    dx *= 0.7071;
-                    dy *= 0.7071;
-                }
-
-                // X축 이동 및 충돌 체크
-                let nextX = this.x + dx;
-                if (!checkCollision(nextX, this.y, this.width, this.height)) {
-                    this.x = Math.max(0, Math.min(nextX, WORLD_WIDTH - this.width));
-                }
-
-                // Y축 이동 및 충돌 체크
-                let nextY = this.y + dy;
-                if (!checkCollision(this.x, nextY, this.width, this.height)) {
-                    this.y = Math.max(0, Math.min(nextY, WORLD_HEIGHT - this.height));
-                }
-
-                if (this.isMoving) {
-                    this.walkCycle += 0.25;
-                } else {
-                    this.walkCycle = 0;
-                }
-            }
-
-            draw(ctx, cameraX, cameraY) {
-                const renderX = this.x - cameraX;
-                const renderY = this.y - cameraY;
-
-                // 화면 밖에 있으면 렌더링 생략 (최적화)
-                if (renderX < -100 || renderX > canvas.width + 100 || 
-                    renderY < -100 || renderY > canvas.height + 100) return;
-
-                const bounce = this.isMoving ? Math.abs(Math.sin(this.walkCycle)) * 6 : 0;
-                const leg1Offset = this.isMoving ? Math.max(0, Math.sin(this.walkCycle)) * 8 : 0;
-                const leg2Offset = this.isMoving ? Math.max(0, -Math.sin(this.walkCycle)) * 8 : 0;
-
-                ctx.save();
+        // ==========================================
+        // UI 및 렌더링
+        // ==========================================
+        function updateLocalUI() {
+            document.getElementById('player-list').innerText = `접속자: ${Object.keys(gameState.players).length} / 8 명`;
+            
+            if (gameState.phase === 'Lobby') {
+                roleInfo.innerText = "대기실 (방장의 시작을 기다리세요)";
+                roleInfo.style.color = "#aaa";
+                actionBtn.style.display = 'none';
+                if (isHost) hostStartBtn.style.display = 'block';
+            } else if (gameState.phase === 'Playing') {
+                hostStartBtn.style.display = 'none';
+                const isImposter = gameState.imposters.includes(myId);
                 
-                // 닉네임 태그 (그림자 포함)
-                ctx.fillStyle = 'white';
-                ctx.font = 'bold 16px Arial';
-                ctx.textAlign = 'center';
-                ctx.shadowColor = 'black';
-                ctx.shadowBlur = 4;
-                ctx.shadowOffsetX = 2;
-                ctx.shadowOffsetY = 2;
-                ctx.fillText(this.name, renderX + this.width / 2, renderY - 15 - bounce);
-                ctx.shadowColor = 'transparent'; // 그림자 초기화
-
-                // 그림자
-                const shadowScale = 1 - (bounce * 0.02);
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
-                ctx.beginPath();
-                ctx.ellipse(renderX + this.width / 2, renderY + this.height + 15, (this.width / 1.4) * shadowScale, 8 * shadowScale, 0, 0, Math.PI * 2);
-                ctx.fill();
-
-                ctx.translate(renderX, renderY - bounce);
-                ctx.lineWidth = 4;
-                ctx.strokeStyle = 'black';
-
-                // 백팩
-                ctx.fillStyle = this.color;
-                ctx.beginPath();
-                if (this.direction === 'right') {
-                    ctx.roundRect(-12, 10, 20, 35, 10);
+                // 내 역할 텍스트 표시
+                if (isImposter) {
+                    roleInfo.innerText = "🔪 임포스터 (IMPOSTER)";
+                    roleInfo.style.color = "#ff4757";
+                    actionBtn.style.display = 'block'; // 킬 버튼 활성화
+                    
+                    // 킬 사거리 UI 처리
+                    const me = gameState.players[myId];
+                    let inRange = false;
+                    for (const [id, p] of Object.entries(gameState.players)) {
+                        if (id !== myId && !p.isDead && !gameState.imposters.includes(id)) {
+                            if (Math.hypot(me.x - p.x, me.y - p.y) < 100) { inRange = true; break; }
+                        }
+                    }
+                    actionBtn.style.background = inRange ? 'rgba(255, 71, 87, 1)' : 'rgba(255, 71, 87, 0.3)';
                 } else {
-                    ctx.roundRect(this.width - 8, 10, 20, 35, 10);
+                    roleInfo.innerText = "🛠️ 크루원 (CREWMATE)";
+                    roleInfo.style.color = "#1dd1a1";
+                    actionBtn.style.display = 'none'; // 크루원은 킬 버튼 숨김
                 }
-                ctx.fill(); ctx.stroke();
-
-                // 다리
-                ctx.fillStyle = this.color;
-                ctx.beginPath(); ctx.roundRect(5, this.height - 10 - leg1Offset, 14, 25, 7); ctx.fill(); ctx.stroke();
-                ctx.beginPath(); ctx.roundRect(this.width - 19, this.height - 10 - leg2Offset, 14, 25, 7); ctx.fill(); ctx.stroke();
-
-                // 몸통
-                ctx.fillStyle = this.color;
-                ctx.beginPath(); ctx.roundRect(0, 0, this.width, this.height, 22); ctx.fill(); ctx.stroke();
-
-                // 고글
-                ctx.fillStyle = '#83c2d4';
-                ctx.beginPath();
-                const goggleX = this.direction === 'right' ? 12 : -6;
-                ctx.roundRect(goggleX, 10, 38, 22, 11);
-                ctx.fill(); ctx.stroke();
-
-                // 고글 하이라이트
-                ctx.fillStyle = '#d3eef5';
-                ctx.beginPath();
-                const highlightX = this.direction === 'right' ? 35 : 17;
-                ctx.ellipse(highlightX, 16, 8, 4, -0.2, 0, Math.PI * 2);
-                ctx.fill();
-
-                ctx.restore();
             }
         }
 
-        // 플레이어 및 NPC 생성
-        const player = new Player(1000, 1000, '#c51111', 'Player');
-        const npcs = [
-            new Player(800, 800, '#1122cc', 'Blue'),
-            new Player(1300, 600, '#11cc22', 'Green'),
-            new Player(500, 1300, '#ffcc00', 'Yellow')
-        ];
+        let camera = { x: 0, y: 0 }, walkCycle = 0;
 
-        let camera = { x: 0, y: 0 };
-
-        function drawMap(ctx, cameraX, cameraY) {
-            const tileSize = 100;
-            const startCol = Math.floor(cameraX / tileSize);
-            const endCol = startCol + (canvas.width / tileSize) + 1;
-            const startRow = Math.floor(cameraY / tileSize);
-            const endRow = startRow + (canvas.height / tileSize) + 1;
-
-            ctx.lineWidth = 2;
-            ctx.strokeStyle = '#222';
-
+        function drawGame() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // 바닥 및 테두리
+            const tileSize = 150;
+            const startCol = Math.floor(camera.x / tileSize), endCol = startCol + (canvas.width / tileSize) + 1;
+            const startRow = Math.floor(camera.y / tileSize), endRow = startRow + (canvas.height / tileSize) + 1;
+            ctx.lineWidth = 2; ctx.strokeStyle = '#1e272e';
             for (let c = startCol; c <= endCol; c++) {
                 for (let r = startRow; r <= endRow; r++) {
-                    const tileX = c * tileSize - cameraX;
-                    const tileY = r * tileSize - cameraY;
-
-                    if (c * tileSize < 0 || c * tileSize >= WORLD_WIDTH || 
-                        r * tileSize < 0 || r * tileSize >= WORLD_HEIGHT) {
-                        ctx.fillStyle = '#000';
-                    } else {
-                        ctx.fillStyle = (c + r) % 2 === 0 ? '#45454d' : '#4a4a52';
-                    }
-                    
-                    ctx.fillRect(tileX, tileY, tileSize, tileSize);
-                    ctx.strokeRect(tileX, tileY, tileSize, tileSize);
+                    const tx = c * tileSize - camera.x, ty = r * tileSize - camera.y;
+                    ctx.fillStyle = (c*tileSize<0 || c*tileSize>=WORLD_SIZE || r*tileSize<0 || r*tileSize>=WORLD_SIZE) ? '#000' : ((c+r)%2===0 ? '#485460' : '#3d3d45');
+                    ctx.fillRect(tx, ty, tileSize, tileSize); ctx.strokeRect(tx, ty, tileSize, tileSize);
                 }
             }
-        }
+            ctx.strokeStyle = '#ffa801'; ctx.lineWidth = 10; ctx.strokeRect(-camera.x, -camera.y, WORLD_SIZE, WORLD_SIZE);
 
-        function drawWalls(ctx, cameraX, cameraY) {
-            ctx.lineWidth = 6;
-            ctx.strokeStyle = '#222';
-            for (let wall of walls) {
-                const renderX = wall.x - cameraX;
-                const renderY = wall.y - cameraY;
+            // 시체
+            gameState.corpses.forEach(c => {
+                ctx.save(); ctx.translate(c.x - camera.x, c.y - camera.y);
+                ctx.fillStyle = c.color; ctx.strokeStyle = 'black'; ctx.lineWidth = 3;
+                ctx.beginPath(); ctx.roundRect(-20, 0, 40, 25, 10); ctx.fill(); ctx.stroke();
+                ctx.fillStyle = '#f1f2f6'; ctx.beginPath(); ctx.ellipse(0, 0, 8, 5, 0, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+                ctx.restore();
+            });
+
+            // 플레이어 (Y축 정렬)
+            const sorted = Object.entries(gameState.players).sort((a, b) => a[1].y - b[1].y);
+            for (let [id, p] of sorted) {
+                const rx = p.x - camera.x, ry = p.y - camera.y;
+                if (rx < -50 || rx > canvas.width + 50 || ry < -50 || ry > canvas.height + 50) continue;
                 
-                // 3D 느낌을 살짝 주기 위해 그림자(측면) 추가
-                ctx.fillStyle = '#334';
-                ctx.fillRect(renderX, renderY + 10, wall.w, wall.h);
+                ctx.save();
+                if (p.isDead) {
+                    ctx.globalAlpha = 0.4; ctx.fillStyle = p.color;
+                    ctx.beginPath(); ctx.arc(rx, ry, 20, Math.PI, 0); ctx.lineTo(rx+20, ry+25); ctx.lineTo(rx-20, ry+25); ctx.fill();
+                    ctx.fillStyle = 'white'; ctx.fillRect(rx-10, ry-5, 6, 6); ctx.fillRect(rx+4, ry-5, 6, 6);
+                } else {
+                    const bounce = p.isMoving ? Math.abs(Math.sin(walkCycle)) * 5 : 0;
+                    ctx.fillStyle = 'rgba(0,0,0,0.4)'; ctx.beginPath(); ctx.ellipse(rx, ry+25+10, 20, 6, 0, 0, Math.PI*2); ctx.fill();
+                    ctx.translate(rx, ry - bounce);
+                    
+                    // 이름 표시 (내가 임포스터면 다른 임포스터 이름도 빨간색으로 표시)
+                    ctx.font = 'bold 14px Arial'; ctx.textAlign = 'center';
+                    if (gameState.imposters.includes(id) && gameState.imposters.includes(myId)) {
+                        ctx.fillStyle = '#ff4757'; // 동료 임포스터 식별
+                    } else {
+                        ctx.fillStyle = id === myId ? '#1dd1a1' : 'white';
+                    }
+                    ctx.fillText(p.name, 0, -35);
 
-                ctx.fillStyle = wall.color;
-                ctx.fillRect(renderX, renderY, wall.w, wall.h);
-                ctx.strokeRect(renderX, renderY, wall.w, wall.h);
+                    ctx.lineWidth = 3; ctx.strokeStyle = 'black'; ctx.fillStyle = p.color;
+                    const px = p.facing===1 ? -25 : 5; ctx.beginPath(); ctx.roundRect(px, -10, 20, 30, 8); ctx.fill(); ctx.stroke(); // 산소통
+                    ctx.beginPath(); ctx.roundRect(-20, -25, 40, 50, 20); ctx.fill(); ctx.stroke(); // 몸통
+                    ctx.fillStyle = '#81ecec'; const gx = p.facing===1 ? 5 : -25; ctx.beginPath(); ctx.roundRect(gx, -15, 30, 18, 10); ctx.fill(); ctx.stroke(); // 고글
+                }
+                ctx.restore();
             }
-        }
 
-        // 시야 제한(어두운 조명 효과) 그리기
-        function drawVision(ctx) {
-            ctx.save();
-            const centerX = canvas.width / 2;
-            const centerY = canvas.height / 2;
-
-            // 중앙은 투명하고 바깥으로 갈수록 까맣게 변하는 그라데이션
-            const gradient = ctx.createRadialGradient(
-                centerX, centerY, 80,   // 밝은 영역 반경
-                centerX, centerY, 350   // 완전히 어두워지는 반경
-            );
-            gradient.addColorStop(0, 'rgba(0, 0, 0, 0)');
-            gradient.addColorStop(0.5, 'rgba(0, 0, 0, 0.6)');
-            gradient.addColorStop(1, 'rgba(0, 0, 0, 0.98)');
-
-            ctx.fillStyle = gradient;
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            ctx.restore();
+            // 시야 제한 (대기실일 땐 밝게, 게임 중일 땐 어둡게)
+            const me = gameState.players[myId];
+            if (me && !me.isDead && gameState.phase === 'Playing') {
+                const grad = ctx.createRadialGradient(canvas.width/2, canvas.height/2, 100, canvas.width/2, canvas.height/2, 400);
+                grad.addColorStop(0, 'rgba(0,0,0,0)'); grad.addColorStop(1, 'rgba(0,0,0,0.95)');
+                ctx.fillStyle = grad; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
         }
 
         function gameLoop() {
-            player.update();
+            if (isHost) hostUpdate();
+            if (!isHost && hostConn && hostConn.open) hostConn.send({ type: 'input', keys: keys });
 
-            const targetCameraX = player.x + player.width / 2 - canvas.width / 2;
-            const targetCameraY = player.y + player.height / 2 - canvas.height / 2;
-            camera.x += (targetCameraX - camera.x) * 0.1;
-            camera.y += (targetCameraY - camera.y) * 0.1;
+            const me = gameState.players[myId];
+            if (me) {
+                camera.x += (me.x - canvas.width / 2 - camera.x) * 0.1;
+                camera.y += (me.y - canvas.height / 2 - camera.y) * 0.1;
+                walkCycle += 0.2;
+            }
 
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
-            drawMap(ctx, camera.x, camera.y);
-            drawWalls(ctx, camera.x, camera.y);
-
-            // NPC와 플레이어 렌더링 (Y축 기준으로 정렬하여 겹칠 때 자연스럽게 보이게 함)
-            const allCharacters = [...npcs, player].sort((a, b) => a.y - b.y);
-            allCharacters.forEach(char => char.draw(ctx, camera.x, camera.y));
-
-            // 가장 마지막에 조명 효과 덮어씌우기
-            drawVision(ctx);
-
+            updateLocalUI();
+            drawGame();
             requestAnimationFrame(gameLoop);
         }
 
-        gameLoop();
+        function startGameLoop() { requestAnimationFrame(gameLoop); }
+
     </script>
 </body>
 </html>
