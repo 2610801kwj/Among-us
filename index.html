@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>P2P Among Us - 20 Players & 5x2 Sprite Edition</title>
+    <title>P2P Among Us - Fixed Aspect Ratio Edition</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Nunito:wght=700;900&display=swap');
         body { margin: 0; background-color: #050505; color: white; font-family: 'Nunito', sans-serif; overflow: hidden; user-select: none; }
@@ -106,8 +106,7 @@
     <script>
         // --- 1. 이미지 및 애니메이션 기본 설정 ---
         const playerImg = new Image();
-        // 깃허브 페이지 호스팅 환경을 고려하여 상대 경로를 명시적으로 설정
-        playerImg.src = './1734.png'; 
+        playerImg.src = './1734.png'; // 대소문자 및 경로 주의
         
         let animTimer = 0; 
 
@@ -329,7 +328,7 @@
             
             taskZones.forEach(t => { ctx.fillStyle = t.color; ctx.fillRect(t.x - camera.x, t.y - camera.y, t.w, t.h); });
 
-            // 움직임 애니메이션 재생 타이머 업데이트
+            // 타이머 업데이트 (애니메이션 구동용)
             animTimer += 0.15;
 
             for (let [id, p] of Object.entries(gameState.players)) {
@@ -338,18 +337,27 @@
                 
                 ctx.save();
                 ctx.font = 'bold 16px Nunito'; ctx.textAlign = 'center'; ctx.fillStyle = 'white';
-                ctx.fillText(p.name, rx, ry - 40);
+                // 캐릭터 높이에 맞춰 닉네임 위치 보정
+                ctx.fillText(p.name, rx, ry - 45);
                 
-                // --- 5x2 규격 스프라이트 시트 드로잉 영역 ---
+                // --- 5x2 비율 교정 스프라이트 렌더링 ---
                 if (playerImg.complete && playerImg.naturalWidth !== 0) {
                     const cols = 5;
                     const rows = 2;
+                    
+                    // 1칸의 순수 원본 크기 계산
                     const frameWidth = playerImg.width / cols; 
                     const frameHeight = playerImg.height / rows;
                     
-                    // 움직일 때만 0~9 무한 루프 재생, 멈추면 첫 프레임(0) 고정
-                    let frameIndex = p.isMoving ? Math.floor(animTimer) % 10 : 0;
+                    // 세로 대비 가로 비율(Aspect Ratio) 추출
+                    const aspectRatio = frameWidth / frameHeight;
                     
+                    // 세로를 60px로 고정하고 가로는 비율에 맞춤으로써 찌그러짐 방지!
+                    const displayHeight = 60;
+                    const displayWidth = displayHeight * aspectRatio;
+
+                    // 프레임 위치 매핑
+                    let frameIndex = p.isMoving ? Math.floor(animTimer) % 10 : 0;
                     let col = frameIndex % cols;
                     let row = Math.floor(frameIndex / cols);
                     
@@ -359,12 +367,12 @@
                     if (p.facing === -1) {
                         ctx.translate(rx, ry);
                         ctx.scale(-1, 1);
-                        ctx.drawImage(playerImg, cutX, cutY, frameWidth, frameHeight, -27, -27, 55, 55);
+                        ctx.drawImage(playerImg, cutX, cutY, frameWidth, frameHeight, -(displayWidth / 2), -(displayHeight / 2), displayWidth, displayHeight);
                     } else {
-                        ctx.drawImage(playerImg, cutX, cutY, frameWidth, frameHeight, rx - 27, ry - 27, 55, 55);
+                        ctx.drawImage(playerImg, cutX, cutY, frameWidth, frameHeight, rx - (displayWidth / 2), ry - (displayHeight / 2), displayWidth, displayHeight);
                     }
                 } else {
-                    // 이미지 불러오기 전이나 실패시 대체 도형 (빨간 네모)
+                    // 이미지 소스 유실 대비용 폴백 박스
                     ctx.fillStyle = p.color; ctx.fillRect(rx - 25, ry - 30, 50, 60);
                 }
                 ctx.restore();
