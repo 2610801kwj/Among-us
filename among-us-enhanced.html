@@ -1,0 +1,1238 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Among Us Enhanced</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@700;900&display=swap');
+        * { box-sizing: border-box; }
+        body { margin: 0; background: #050505; color: white; font-family: 'Nunito', sans-serif; overflow: hidden; user-select: none; touch-action: none; -webkit-touch-callout: none; }
+        canvas { display: block; touch-action: none; }
+
+        .overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 20; }
+        .panel { background: rgba(12, 13, 20, 0.97); padding: 36px; border-radius: 20px; border: 2px solid #2e3a4e; pointer-events: auto; text-align: center; box-shadow: 0 25px 60px rgba(0,0,0,0.95); backdrop-filter: blur(20px); max-width: 94%; }
+        h1 { margin-top: 0; color: #ff4757; font-size: 2.4rem; text-shadow: 0 0 30px rgba(255,71,87,0.5); letter-spacing: 2px; }
+
+        input[type=text], input[type=number] { padding: 13px; font-size: 15px; border-radius: 10px; border: 2px solid #2e3a4e; text-align: center; margin-bottom: 14px; width: 85%; max-width: 260px; text-transform: uppercase; background: #181d28; color: white; font-family: 'Nunito', sans-serif; font-weight: bold; outline: none; transition: border-color 0.2s; }
+        input[type=text]:focus, input[type=number]:focus { border-color: #1dd1a1; }
+        button { padding: 13px 26px; font-size: 15px; font-weight: 900; background: #1dd1a1; color: white; border: none; border-radius: 10px; cursor: pointer; transition: 0.18s; margin: 5px; text-shadow: 1px 1px 3px rgba(0,0,0,0.4); }
+        button:hover { transform: scale(1.05); filter: brightness(1.15); }
+        .btn-host { background: #ff4757; }
+        .btn-skip { background: #747d8c; }
+        hr { border-color: #1e2535; margin: 18px 0; }
+
+        /* ─── CHARACTER CUSTOMISER ─── */
+        #custom-panel { margin-top: 18px; }
+        #custom-panel h3 { color: #1dd1a1; margin: 0 0 10px; font-size: 1rem; }
+        #color-grid { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 14px; }
+        .color-swatch { width: 34px; height: 34px; border-radius: 8px; cursor: pointer; border: 3px solid transparent; transition: 0.15s; }
+        .color-swatch.selected { border-color: #fff; transform: scale(1.18); box-shadow: 0 0 10px rgba(255,255,255,0.4); }
+        #hat-grid { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 10px; }
+        .hat-btn { width: 40px; height: 40px; border-radius: 8px; cursor: pointer; border: 2px solid #2e3a4e; background: #181d28; font-size: 18px; display: flex; align-items: center; justify-content: center; transition: 0.15s; }
+        .hat-btn.selected { border-color: #ffa502; background: #2a2010; }
+        #avatar-preview { margin: 0 auto 14px; }
+
+        /* ─── GAME UI ─── */
+        #game-ui { position: absolute; top: 15px; left: 15px; pointer-events: none; display: none; z-index: 5; }
+        #room-info { font-size: 17px; color: #1dd1a1; margin-bottom: 4px; }
+        #player-list { font-size: 13px; color: #8892a4; margin-bottom: 8px; }
+        #task-bar-container { width: 180px; height: 13px; background: rgba(0,0,0,0.7); border: 2px solid #fff; border-radius: 8px; margin-bottom: 8px; overflow: hidden; display: none; }
+        #task-bar-fill { width: 0%; height: 100%; background: linear-gradient(90deg, #2ed573, #7bed9f); transition: width 0.4s; }
+        #host-start-btn { pointer-events: auto; display: none; background: #ffa502; margin-top: 10px; font-size: 13px; padding: 9px 18px; }
+        #sabotage-alert { color: #ff4757; font-size: 15px; font-weight: 900; display: none; animation: blink 0.8s infinite; }
+        #role-banner { font-size: 13px; margin-top: 4px; }
+        #kill-cooldown-bar { display: none; width: 180px; height: 8px; background: rgba(0,0,0,0.5); border: 1px solid #ff4757; border-radius: 4px; margin-top: 6px; overflow: hidden; }
+        #kill-cooldown-fill { height: 100%; background: #ff4757; transition: width 0.3s; width: 100%; }
+
+        /* ─── MINIMAP ─── */
+        #minimap-container { position: absolute; top: 15px; right: 15px; width: 130px; height: 130px; background: rgba(5,5,10,0.88); border: 2px solid #2e3a4e; border-radius: 12px; overflow: hidden; display: none; z-index: 4; box-shadow: 0 0 20px rgba(0,0,0,0.6); pointer-events: none; }
+        #minimap-canvas { width: 100%; height: 100%; }
+
+        /* ─── JOYSTICK ─── */
+        #joystick-zone { position: absolute; bottom: 0; left: 0; width: 50%; height: 58%; z-index: 10; pointer-events: auto; display: none; }
+
+        /* ─── ACTION BUTTONS ─── */
+        #action-container { position: absolute; bottom: 22px; right: 20px; display: none; gap: 10px; z-index: 15; flex-wrap: wrap-reverse; justify-content: flex-end; width: 190px; }
+        .action-btn { width: 74px; height: 74px; border-radius: 50%; font-weight: 900; font-size: 10px; display: none; text-align: center; border: 3px solid; color: white; cursor: pointer; pointer-events: auto; transition: 0.12s; flex-direction: column; justify-content: center; align-items: center; box-shadow: 0 8px 20px rgba(0,0,0,0.6); user-select: none; }
+        .action-btn:active { transform: scale(0.88); }
+        #kill-btn { background: rgba(255,71,87,0.75); border-color: #ff4757; }
+        #report-btn { background: rgba(255,165,2,0.75); border-color: #ffa502; }
+        #task-btn { background: rgba(46,213,115,0.75); border-color: #2ed573; }
+        #vent-btn { background: rgba(116,125,140,0.75); border-color: #747d8c; }
+        #sabotage-btn { background: rgba(165,94,234,0.75); border-color: #a55eea; }
+        #emergency-btn { background: rgba(255,165,2,0.75); border-color: #ffa502; }
+        .action-btn.disabled { opacity: 0.35; pointer-events: none; background: rgba(30,30,30,0.5)!important; border-color: #333!important; }
+
+        /* ─── CUTSCENE ─── */
+        #cutscene-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 99; pointer-events: auto; }
+        #cutscene-text { font-size: 2.6rem; font-weight: 900; color: #ff4757; text-align: center; text-shadow: 0 0 30px rgba(255,71,87,0.7); animation: punch 0.5s ease-out forwards; }
+        #cutscene-sub { font-size: 1.1rem; color: #ced6e0; margin-top: 14px; animation: fadeIn 0.8s 0.5s both; }
+        @keyframes punch { 0% { transform: scale(3.5); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0.2; } }
+        @keyframes slideUp { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+        /* ─── MINIGAME POPUP ─── */
+        #minigame-popup { display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); background: #12151e; width: 92%; max-width: 520px; height: 62%; max-height: 420px; border: 3px solid #2e3a4e; border-radius: 18px; z-index: 100; pointer-events: auto; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.9); }
+        #wire-canvas { width: 100%; height: 100%; display: block; touch-action: none; background: #0d0f16; }
+        #close-task-btn { position: absolute; top: 10px; right: 10px; background: #ff4757; color: white; border: none; padding: 9px 13px; border-radius: 8px; cursor: pointer; font-weight: bold; z-index: 101; font-size: 13px; }
+
+        /* ─── VOTING UI ─── */
+        #voting-ui { display: none; background: rgba(5,5,10,0.98); }
+        .voting-wrapper { display: flex; flex-direction: column; width: 92%; max-width: 820px; height: 82%; background: #0f1118; border-radius: 22px; border: 2px solid #2e3a4e; pointer-events: auto; overflow: hidden; box-shadow: 0 15px 40px rgba(0,0,0,0.95); }
+        .voting-header { padding: 16px 20px; background: rgba(255,71,87,0.08); border-bottom: 2px solid #1e2535; display: flex; align-items: center; justify-content: space-between; }
+        .voting-timer { font-size: 1.8rem; font-weight: 900; color: #ffa502; }
+        .voting-body { display: flex; flex: 1; overflow: hidden; }
+        .voting-left { flex: 1.2; padding: 15px; display: flex; flex-direction: column; overflow-y: auto; border-right: 2px solid #1e2535; }
+        .vote-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+        .vote-card { background: #181d28; padding: 11px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; border: 2px solid transparent; color: white; font-size: 13px; transition: 0.15s; }
+        .vote-card:hover:not(.dead):not(.voted) { border-color: #1dd1a1; background: #1e2535; }
+        .vote-card.selected { border-color: #ff4757; background: #2a1518; }
+        .vote-card.dead { opacity: 0.25; pointer-events: none; filter: grayscale(100%); }
+        .vote-card.voted { opacity: 0.6; pointer-events: none; }
+        .vote-color-swatch { width: 14px; height: 14px; border-radius: 4px; margin-right: 7px; flex-shrink: 0; }
+        .vote-hat { font-size: 14px; margin-right: 4px; }
+        .vote-tally { font-size: 11px; color: #ffa502; margin-left: auto; }
+        .voting-right { flex: 0.9; padding: 15px; display: flex; flex-direction: column; background: #0b0d14; }
+        #chat-box { flex: 1; background: #060709; border-radius: 10px; padding: 10px; overflow-y: auto; margin-bottom: 10px; text-align: left; font-size: 12px; border: 1px solid #1a1d28; }
+        .chat-msg { margin-bottom: 5px; line-height: 1.4; animation: slideUp 0.2s ease-out; }
+        .chat-system { color: #747d8c; font-style: italic; font-size: 11px; }
+        .chat-input-row { display: flex; gap: 6px; }
+        #chat-input { flex: 1; padding: 9px; border-radius: 7px; border: 1px solid #2e3a4e; background: #12151e; color: white; font-size: 13px; margin-bottom: 0; font-family: 'Nunito', sans-serif; outline: none; }
+        #chat-input:focus { border-color: #1dd1a1; }
+        #chat-send-btn { padding: 9px 14px; font-size: 13px; margin: 0; border-radius: 7px; }
+
+        /* ─── GAME OVER ─── */
+        #game-over-ui { display: none; background: rgba(0,0,0,0.92); }
+        #winner-text { font-size: 2.8rem; margin-bottom: 20px; text-align: center; animation: punch 0.6s ease-out; }
+        #winner-sub { font-size: 1.1rem; color: #ced6e0; text-align: center; margin-bottom: 20px; }
+        #result-list { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin-bottom: 24px; }
+        .result-player { background: #181d28; border-radius: 12px; padding: 10px 18px; font-size: 14px; display: flex; align-items: center; gap: 8px; border: 2px solid #2e3a4e; }
+        .result-imposter { border-color: #ff4757; background: #200d0f; }
+        .result-dead { opacity: 0.4; }
+
+        @media (min-width: 768px) {
+            .voting-body { flex-direction: row; }
+            .action-btn { width: 88px; height: 88px; font-size: 12px; }
+        }
+    </style>
+</head>
+<body>
+
+<canvas id="gameCanvas"></canvas>
+<div id="joystick-zone"></div>
+
+<!-- Game HUD -->
+<div id="game-ui">
+    <div id="room-info"></div>
+    <div id="player-list"></div>
+    <div id="task-bar-container"><div id="task-bar-fill"></div></div>
+    <div id="sabotage-alert">⚠️ 사보타지 발생!</div>
+    <div id="role-banner"></div>
+    <div id="kill-cooldown-bar"><div id="kill-cooldown-fill"></div></div>
+    <button id="host-start-btn" onclick="hostStartGame()">🚀 게임 시작</button>
+</div>
+
+<div id="minimap-container">
+    <canvas id="minimap-canvas" width="130" height="130"></canvas>
+</div>
+
+<!-- Cutscene -->
+<div id="cutscene-overlay">
+    <div id="cutscene-text">🚨 DEAD BODY REPORTED</div>
+    <div id="cutscene-sub"></div>
+</div>
+
+<!-- Action Buttons -->
+<div id="action-container">
+    <div id="emergency-btn" class="action-btn" onpointerdown="sendAction('emergency'); event.preventDefault();">🔴 EMERG<br>[ Q ]</div>
+    <div id="task-btn" class="action-btn" onpointerdown="performTask(); event.preventDefault();">⚙️ TASK<br>[ E ]</div>
+    <div id="vent-btn" class="action-btn" onpointerdown="toggleVent(); event.preventDefault();">🕳️ VENT<br>[ V ]</div>
+    <div id="sabotage-btn" class="action-btn" onpointerdown="openSabotageMenu(); event.preventDefault();">💡 SAB<br>[ G ]</div>
+    <div id="report-btn" class="action-btn" onpointerdown="sendAction('report'); event.preventDefault();">📢 REPORT<br>[ R ]</div>
+    <div id="kill-btn" class="action-btn" onpointerdown="sendAction('kill'); event.preventDefault();">🔪 KILL<br>[ SPACE ]</div>
+</div>
+
+<!-- Sabotage menu -->
+<div id="sabotage-menu" style="display:none; position:absolute; bottom:160px; right:20px; background:#0f1118; border:2px solid #a55eea; border-radius:14px; padding:14px; z-index:20; pointer-events:auto;">
+    <div style="color:#a55eea; font-weight:900; margin-bottom:10px; font-size:13px;">⚡ 사보타지 선택</div>
+    <button onclick="sendAction('sabotage_lights'); closeSabMenu();" style="background:#ff4757; width:100%; margin-bottom:6px;">💡 정전</button>
+    <button onclick="sendAction('sabotage_reactor'); closeSabMenu();" style="background:#ff6b35; width:100%; margin-bottom:6px;">☢️ 원자로</button>
+    <button onclick="sendAction('sabotage_o2'); closeSabMenu();" style="background:#5352ed; width:100%;">💨 산소누출</button>
+</div>
+
+<!-- Wire Task Popup -->
+<div id="minigame-popup">
+    <button id="close-task-btn" onpointerdown="closeMinigame(); event.preventDefault();">✕</button>
+    <canvas id="wire-canvas"></canvas>
+</div>
+
+<!-- MENU -->
+<div class="overlay" id="menu-ui">
+    <div class="panel" style="width:95%; max-width:480px;">
+        <h1>☠ AMONG US</h1>
+        <div style="display:flex; gap:10px; align-items:flex-start; flex-wrap:wrap; justify-content:center;">
+            <!-- Left: Name + Room -->
+            <div style="flex:1; min-width:200px;">
+                <input type="text" id="nickname" placeholder="닉네임" maxlength="8" value="Player">
+                <hr>
+                <button class="btn-host" onclick="createRoom()" style="width:100%; margin-bottom:8px;">🏠 방 만들기</button>
+                <input type="text" id="room-code" placeholder="방 코드 입력" maxlength="5">
+                <button onclick="joinRoom()" style="width:100%; background:#5352ed;">🚪 입장하기</button>
+            </div>
+            <!-- Right: Customize -->
+            <div style="flex:1; min-width:200px;" id="custom-panel">
+                <h3>🎨 캐릭터 커스텀</h3>
+                <canvas id="avatar-preview" width="70" height="90" style="display:block; margin:0 auto 10px;"></canvas>
+                <div style="font-size:11px; color:#747d8c; margin-bottom:6px;">색상 선택</div>
+                <div id="color-grid"></div>
+                <div style="font-size:11px; color:#747d8c; margin-bottom:6px; margin-top:6px;">모자 선택</div>
+                <div id="hat-grid"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- VOTING -->
+<div class="overlay" id="voting-ui">
+    <div class="voting-wrapper">
+        <div class="voting-header">
+            <span style="color:#ff4757; font-weight:900; font-size:1.1rem;">🚨 긴급 재판</span>
+            <span class="voting-timer" id="voting-timer">60</span>
+        </div>
+        <div class="voting-body">
+            <div class="voting-left">
+                <div class="vote-grid" id="vote-grid"></div>
+                <button class="btn-skip" onclick="castVote('SKIP')" style="width:100%; margin-top:12px;">🙅 투표 건너뛰기</button>
+            </div>
+            <div class="voting-right">
+                <div id="chat-box"></div>
+                <div class="chat-input-row">
+                    <input type="text" id="chat-input" placeholder="의견 입력..." onkeydown="if(event.key==='Enter') sendChatMessage()" maxlength="60">
+                    <button id="chat-send-btn" onclick="sendChatMessage()">전송</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- GAME OVER -->
+<div class="overlay" id="game-over-ui">
+    <div class="panel" style="max-width:600px;">
+        <div id="winner-text"></div>
+        <div id="winner-sub"></div>
+        <div id="result-list"></div>
+        <button onclick="restartToLobby()" style="background:#1dd1a1;">🔄 로비로 돌아가기</button>
+    </div>
+</div>
+
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.10.1/nipplejs.min.js"></script>
+<script>
+// ═══════════════════════════════════════════════════════
+//  CONSTANTS & CONFIG
+// ═══════════════════════════════════════════════════════
+const WORLD_SIZE = 3000;
+const PLAYER_SPEED = 5.5;
+const KILL_RANGE = 110;
+const REPORT_RANGE = 160;
+const EMERGENCY_COOLDOWN = 30;
+const KILL_COOLDOWN = 20;
+const VOTING_SECONDS = 60;
+
+const COLORS = [
+    '#c51111','#132ed1','#117f2d','#ed54ba','#ef7d0d',
+    '#f5f557','#3f474e','#d6e0f0','#6b2fbb','#71491e',
+    '#38fedc','#50ef39','#ff6b9d','#845ec2','#4e8098'
+];
+const HATS = ['','🎩','👒','⛑️','🪖','👑','🎓','🧢','🎅','🐱','🐸','👾','🤡','💀','🌸'];
+
+// ═══════════════════════════════════════════════════════
+//  MAP DATA
+// ═══════════════════════════════════════════════════════
+const walls = [
+    // outer border
+    {x:0,y:0,w:3000,h:50},{x:0,y:0,w:50,h:3000},
+    {x:0,y:2950,w:3000,h:50},{x:2950,y:0,w:50,h:3000},
+    // cafeteria divider
+    {x:1000,y:900,w:50,h:900},{x:1950,y:900,w:50,h:900},
+    {x:1000,y:900,w:300,h:50},{x:1700,y:900,w:300,h:50},
+    {x:1000,y:1750,w:1000,h:50},
+    // left corridor
+    {x:50,y:700,w:600,h:50},{x:600,y:750,w:50,h:500},
+    // right corridor
+    {x:2250,y:50,w:50,h:1200},{x:2250,y:1500,w:50,h:1000},
+    // security room
+    {x:700,y:1400,w:350,h:50},{x:700,y:1400,w:50,h:400},
+    {x:700,y:1750,w:350,h:50},
+    // reactor
+    {x:2400,y:2000,w:50,h:700},{x:2100,y:2000,w:350,h:50},
+    // nav
+    {x:1200,y:2300,w:650,h:50},{x:1200,y:2300,w:50,h:350},
+    {x:1800,y:2300,w:50,h:350},
+    // storage
+    {x:400,y:2000,w:600,h:50},{x:400,y:2000,w:50,h:600},
+    {x:400,y:2550,w:600,h:50},
+];
+
+// Room definitions (name + bounding box for labels)
+const ROOMS = [
+    {name:'CAFETERIA', x:1050, y:960, w:900, h:790},
+    {name:'SECURITY', x:750, y:1450, w:300, h:300},
+    {name:'REACTOR', x:2150, y:2050, w:350, h:650},
+    {name:'NAVIGATION', x:1250, y:2350, w:600, h:300},
+    {name:'STORAGE', x:450, y:2050, w:550, h:500},
+    {name:'MED-BAY', x:100, y:1600, w:360, h:400},
+    {name:'COMMS', x:2600, y:600, w:300, h:400},
+];
+
+const taskZones = [
+    {id:1, x:200, y:1700, w:160, h:160, name:"⚕️ 메드베이", room:"MED-BAY", color:"rgba(46,213,115,0.18)"},
+    {id:2, x:2650, y:650, w:160, h:160, name:"📡 통신 수리", room:"COMMS", color:"rgba(52,152,219,0.18)"},
+    {id:3, x:1200, y:1100, w:160, h:160, name:"🍽 카페 배선", room:"CAFETERIA", color:"rgba(155,89,182,0.18)"},
+    {id:4, x:480, y:2100, w:160, h:160, name:"📦 화물 정리", room:"STORAGE", color:"rgba(230,126,34,0.18)"},
+    {id:5, x:1350, y:2400, w:160, h:160, name:"🗺 항법 교정", room:"NAVIGATION", color:"rgba(26,188,156,0.18)"},
+    // sabotage fix zones
+    {id:99, x:200, y:250, w:160, h:160, name:"⚡ 정전 복구", color:"rgba(235,94,85,0.28)", isSab:true, sabType:'lights'},
+    {id:98, x:2500, y:2100, w:160, h:160, name:"☢️ 원자로", color:"rgba(255,107,53,0.28)", isSab:true, sabType:'reactor'},
+    {id:97, x:1350, y:1100, w:160, h:160, name:"💨 산소공급기", color:"rgba(83,82,237,0.28)", isSab:true, sabType:'o2'},
+];
+
+const vents = [
+    {id:0, x:350, y:1850, linkedTo:[1,2]},
+    {id:1, x:2750, y:1800, linkedTo:[0,2]},
+    {id:2, x:1480, y:1500, linkedTo:[0,1]},
+];
+
+const emergencyButton = {x:1450, y:1400, w:100, h:100};
+
+// ═══════════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════════
+let peer=null, isHost=false, myId=null, hostConn=null, clients={};
+let myLocalTasks=[], myVote=null, currentTaskId=null;
+let joyVector={x:0,y:0};
+const keys={w:false,a:false,s:false,d:false};
+let myColor=COLORS[0], myHat=HATS[0];
+let votingTimerInterval=null;
+let killCooldownLocal=0;
+let sabMenuOpen=false;
+
+let gameState={
+    phase:'Lobby',
+    imposters:[],
+    players:{},
+    corpses:[],
+    tasksTotal:0, tasksCompleted:0,
+    votes:{}, voteTallies:{},
+    winner:'',
+    sabotageCooldown:0,
+    sabotageActive: null, // null | 'lights'|'reactor'|'o2'
+    sabotageTimer: 0,
+    emergencyCooldowns:{},
+    killCooldowns:{},
+    roundKills:{}, // id -> count
+};
+
+const WIRE_COLORS_TASK=['#ff4757','#2ed573','#1e90ff','#ffa502'];
+let wireState={leftWires:[],rightWires:[],activeDrag:-1,mx:0,my:0};
+
+// ═══════════════════════════════════════════════════════
+//  CANVAS SETUP
+// ═══════════════════════════════════════════════════════
+const canvas=document.getElementById('gameCanvas');
+const ctx=canvas.getContext('2d');
+const mCanvas=document.getElementById('minimap-canvas');
+const mCtx=mCanvas.getContext('2d');
+const wCanvas=document.getElementById('wire-canvas');
+const wCtx=wCanvas.getContext('2d');
+
+function resize(){
+    canvas.width=window.innerWidth; canvas.height=window.innerHeight;
+    wCanvas.width=wCanvas.parentElement.clientWidth;
+    wCanvas.height=wCanvas.parentElement.clientHeight;
+}
+window.addEventListener('resize',resize); resize();
+
+// ═══════════════════════════════════════════════════════
+//  AUDIO
+// ═══════════════════════════════════════════════════════
+const audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+function playSound(type){
+    try{
+        if(audioCtx.state==='suspended') audioCtx.resume();
+        const osc=audioCtx.createOscillator(), gain=audioCtx.createGain();
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        const t=audioCtx.currentTime;
+        const sounds={
+            kill:[()=>{ osc.type='sawtooth'; osc.frequency.setValueAtTime(180,t); osc.frequency.exponentialRampToValueAtTime(40,t+0.25); gain.gain.setValueAtTime(0.4,t); gain.gain.linearRampToValueAtTime(0,t+0.25); osc.start(); osc.stop(t+0.25); }],
+            report:[()=>{ osc.type='triangle'; osc.frequency.setValueAtTime(600,t); osc.frequency.setValueAtTime(900,t+0.15); gain.gain.setValueAtTime(0.3,t); gain.gain.linearRampToValueAtTime(0,t+0.4); osc.start(); osc.stop(t+0.4); }],
+            sabotage:[()=>{ osc.type='sine'; osc.frequency.setValueAtTime(250,t); osc.frequency.linearRampToValueAtTime(80,t+0.6); gain.gain.setValueAtTime(0.35,t); gain.gain.linearRampToValueAtTime(0,t+0.7); osc.start(); osc.stop(t+0.7); }],
+            task:[()=>{ osc.type='sine'; osc.frequency.setValueAtTime(523,t); osc.frequency.setValueAtTime(659,t+0.1); osc.frequency.setValueAtTime(784,t+0.2); gain.gain.setValueAtTime(0.2,t); gain.gain.linearRampToValueAtTime(0,t+0.4); osc.start(); osc.stop(t+0.4); }],
+            emergency:[()=>{ osc.type='square'; osc.frequency.setValueAtTime(440,t); osc.frequency.setValueAtTime(220,t+0.1); osc.frequency.setValueAtTime(440,t+0.2); gain.gain.setValueAtTime(0.25,t); gain.gain.linearRampToValueAtTime(0,t+0.35); osc.start(); osc.stop(t+0.35); }],
+            eject:[()=>{ osc.type='sine'; osc.frequency.setValueAtTime(880,t); osc.frequency.exponentialRampToValueAtTime(110,t+1.0); gain.gain.setValueAtTime(0.3,t); gain.gain.linearRampToValueAtTime(0,t+1.0); osc.start(); osc.stop(t+1.0); }],
+        };
+        if(sounds[type]) sounds[type][0]();
+    }catch(e){}
+}
+
+// ═══════════════════════════════════════════════════════
+//  CHARACTER CUSTOMISER
+// ═══════════════════════════════════════════════════════
+function buildCustomUI(){
+    const cg=document.getElementById('color-grid');
+    COLORS.forEach((c,i)=>{
+        const d=document.createElement('div');
+        d.className='color-swatch'+(i===0?' selected':'');
+        d.style.background=c;
+        d.onclick=()=>{myColor=c; document.querySelectorAll('.color-swatch').forEach(s=>s.classList.remove('selected')); d.classList.add('selected'); renderPreview();};
+        cg.appendChild(d);
+    });
+    const hg=document.getElementById('hat-grid');
+    HATS.forEach((h,i)=>{
+        const d=document.createElement('div');
+        d.className='hat-btn'+(i===0?' selected':'');
+        d.textContent=h||'🚫';
+        d.onclick=()=>{myHat=h; document.querySelectorAll('.hat-btn').forEach(b=>b.classList.remove('selected')); d.classList.add('selected'); renderPreview();};
+        hg.appendChild(d);
+    });
+    renderPreview();
+}
+
+function renderPreview(){
+    const pc=document.getElementById('avatar-preview');
+    const pctx=pc.getContext('2d');
+    pctx.clearRect(0,0,70,90);
+    drawAmongUsCharacter(pctx, 35, 55, myColor, myHat, 1, false, 0.9);
+}
+
+// ═══════════════════════════════════════════════════════
+//  DRAW AMONG-US STYLE CHARACTER (pure canvas)
+// ═══════════════════════════════════════════════════════
+function drawAmongUsCharacter(c, x, y, color, hat, facing, isDead, scale=1){
+    c.save(); c.translate(x,y); c.scale(facing*scale, scale);
+    if(isDead){
+        // Ghost form
+        c.globalAlpha=0.55;
+        c.fillStyle=color; c.beginPath(); c.arc(0,-10,20,Math.PI,0); c.fillRect(-20,-10,40,25); c.fill();
+        // wavy bottom
+        c.fillStyle=color;
+        for(let i=0;i<4;i++){c.beginPath(); c.arc(-14+i*9,-35+35,-7,0,Math.PI); c.fill();}
+        c.fillStyle='rgba(200,240,255,0.9)'; c.fillRect(-10,-22,10,10); c.fillRect(3,-22,10,10);
+        c.globalAlpha=1; c.restore(); return;
+    }
+    // Body
+    c.fillStyle=color;
+    c.beginPath(); c.ellipse(0,0,20,25,0,0,Math.PI*2); c.fill();
+    // Head
+    c.beginPath(); c.ellipse(4,-24,18,16,0,0,Math.PI*2); c.fill();
+    // Visor
+    const grad=c.createLinearGradient(8,-34,18,-18);
+    grad.addColorStop(0,'rgba(180,240,255,0.95)');
+    grad.addColorStop(1,'rgba(80,180,220,0.7)');
+    c.fillStyle=grad;
+    c.beginPath(); c.ellipse(10,-24,11,9,0,0,Math.PI*2); c.fill();
+    c.strokeStyle='rgba(0,0,0,0.3)'; c.lineWidth=1.5; c.stroke();
+    // Backpack
+    c.fillStyle=shadeColor(color,-40);
+    c.fillRect(-24,-8,10,20); c.beginPath(); c.arc(-24,12,5,Math.PI*0.5,Math.PI*1.5); c.fill();
+    // Legs
+    c.fillStyle=shadeColor(color,-30);
+    c.fillRect(-14,20,12,12); c.fillRect(3,20,12,12);
+    // Hat
+    if(hat){
+        c.font=`${22*scale}px serif`; c.textAlign='center'; c.textBaseline='middle';
+        c.fillText(hat, 4*facing, -46);
+    }
+    c.restore();
+}
+
+function shadeColor(hex, amount){
+    let n=parseInt(hex.slice(1),16);
+    let r=Math.max(0,Math.min(255,(n>>16)+amount));
+    let g=Math.max(0,Math.min(255,((n>>8)&0xff)+amount));
+    let b=Math.max(0,Math.min(255,(n&0xff)+amount));
+    return `rgb(${r},${g},${b})`;
+}
+
+// ═══════════════════════════════════════════════════════
+//  NETWORKING
+// ═══════════════════════════════════════════════════════
+function createRoom(){
+    const code=Math.random().toString(36).substring(2,7).toUpperCase();
+    peer=new Peer('AMONG2-'+code);
+    peer.on('open',(id)=>{
+        isHost=true; myId=id;
+        initUI();
+        document.getElementById('room-info').innerText=`🏠 코드: ${code}`;
+        addPlayer(myId, document.getElementById('nickname').value||'Host', myColor, myHat);
+        startGameLoop();
+    });
+    peer.on('connection',(conn)=>{
+        conn.on('open',()=>{
+            clients[conn.peer]=conn;
+            conn.on('data',(data)=>{
+                if(data.type==='join') addPlayer(conn.peer,data.name,data.color,data.hat);
+                else if(data.type==='input') handleMovement(conn.peer,data.keys,data.vector);
+                else if(data.type==='action') processAction(conn.peer,data.action,data.extra);
+                else if(data.type==='vote') handleVote(conn.peer,data.targetId);
+                else if(data.type==='chat') relayChatMessage(conn.peer,data.msg);
+                else if(data.type==='task_complete'){gameState.tasksCompleted++;checkWinCondition();playSound('task');}
+                else if(data.type==='vent_toggle') handleVentToggle(conn.peer,data.dir);
+            });
+        });
+    });
+}
+
+function joinRoom(){
+    let code=document.getElementById('room-code').value.toUpperCase().trim();
+    peer=new Peer();
+    peer.on('open',(id)=>{
+        myId=id; hostConn=peer.connect('AMONG2-'+code);
+        hostConn.on('open',()=>{
+            initUI();
+            hostConn.send({type:'join',name:document.getElementById('nickname').value||'Crewmate',color:myColor,hat:myHat});
+            startGameLoop();
+        });
+        hostConn.on('data',(data)=>{
+            if(data.type==='state') updateLocalState(data.state);
+            if(data.type==='chat_broadcast') appendChatMessage(data.senderName,data.msg,data.color);
+            if(data.type==='sound') playSound(data.soundType);
+            if(data.type==='cutscene') triggerCutsceneUI(data.reporter,data.victimColor);
+        });
+    });
+}
+
+function initUI(){
+    document.getElementById('menu-ui').style.display='none';
+    document.getElementById('game-ui').style.display='block';
+    document.getElementById('minimap-container').style.display='block';
+    document.getElementById('joystick-zone').style.display='block';
+    if(audioCtx.state==='suspended') audioCtx.resume();
+}
+
+function addPlayer(id,name,color,hat){
+    const used=Object.values(gameState.players).map(p=>p.color);
+    const finalColor=color||(COLORS.find(c=>!used.includes(c))||'#ffffff');
+    gameState.players[id]={x:1480,y:1400,color:finalColor,name,hat:hat||'',isDead:false,facing:1,isMoving:false,inVent:-1};
+}
+
+function sendToAll(data){ for(let c in clients) clients[c].send(data); }
+function broadcastSound(st){ playSound(st); sendToAll({type:'sound',soundType:st}); }
+function broadcastCutscene(reporter,victimColor){ triggerCutsceneUI(reporter,victimColor); sendToAll({type:'cutscene',reporter,victimColor}); }
+
+// ═══════════════════════════════════════════════════════
+//  GAME LOGIC (HOST)
+// ═══════════════════════════════════════════════════════
+function hostStartGame(){
+    const pIds=Object.keys(gameState.players);
+    if(pIds.length<1) return;
+    gameState.phase='Playing';
+    gameState.corpses=[]; gameState.votes={}; gameState.voteTallies={};
+    gameState.sabotageActive=null; gameState.sabotageTimer=0;
+    gameState.tasksCompleted=0;
+    gameState.tasksTotal=pIds.length*5; // 5 tasks each
+    gameState.sabotageCooldown=15;
+    gameState.killCooldowns={};
+    gameState.emergencyCooldowns={};
+    gameState.roundKills={};
+    // assign imposters (1 per 5 players, min 1)
+    const numImps=Math.max(1,Math.floor(pIds.length/5));
+    const shuffled=[...pIds].sort(()=>Math.random()-0.5);
+    gameState.imposters=shuffled.slice(0,numImps);
+    pIds.forEach(id=>{
+        let ox=1380+Math.random()*200, oy=1300+Math.random()*200;
+        gameState.players[id]={...gameState.players[id], x:ox, y:oy, isDead:false, inVent:-1};
+        gameState.killCooldowns[id]=KILL_COOLDOWN;
+        gameState.emergencyCooldowns[id]=0;
+    });
+    document.getElementById('chat-box').innerHTML='';
+    addSystemChat('게임이 시작되었습니다! 역할을 확인하세요.');
+}
+
+function checkCollision(x,y,size){
+    if(x-size<0||x+size>WORLD_SIZE||y-size<0||y+size>WORLD_SIZE) return true;
+    for(let w of walls){if(x+size>w.x&&x-size<w.x+w.w&&y+size>w.y&&y-size<w.y+w.h) return true;}
+    return false;
+}
+
+function handleMovement(id,k,v){
+    const p=gameState.players[id];
+    if(!p||p.isDead||gameState.phase!=='Playing') return;
+    if(p.inVent!==-1){
+        if((k&&(k.d||k.s))||(v&&(v.x>0.5||v.y>0.5))){
+            const cur=vents.find(vt=>vt.id===p.inVent);
+            if(cur){p.inVent=cur.linkedTo[0]; p.x=vents[p.inVent].x; p.y=vents[p.inVent].y;}
+        }
+        if((k&&(k.a||k.w))||(v&&(v.x<-0.5||v.y<-0.5))){
+            const cur=vents.find(vt=>vt.id===p.inVent);
+            if(cur){p.inVent=cur.linkedTo[1]||cur.linkedTo[0]; p.x=vents[p.inVent].x; p.y=vents[p.inVent].y;}
+        }
+        return;
+    }
+    let dx=0,dy=0;
+    if(v&&(v.x!==0||v.y!==0)){dx=v.x*PLAYER_SPEED; dy=v.y*PLAYER_SPEED; if(dx!==0) p.facing=dx<0?-1:1;}
+    else if(k){
+        if(k.w)dy-=PLAYER_SPEED; if(k.s)dy+=PLAYER_SPEED;
+        if(k.a){dx-=PLAYER_SPEED; p.facing=-1;} if(k.d){dx+=PLAYER_SPEED; p.facing=1;}
+        if(dx!==0&&dy!==0){dx*=0.707; dy*=0.707;}
+    }
+    p.isMoving=(dx!==0||dy!==0);
+    if(!checkCollision(p.x+dx,p.y,16)) p.x+=dx;
+    if(!checkCollision(p.x,p.y+dy,16)) p.y+=dy;
+}
+
+function handleVentToggle(id){
+    const p=gameState.players[id];
+    if(!p||p.isDead||!gameState.imposters.includes(id)) return;
+    if(p.inVent!==-1){p.inVent=-1;}
+    else{vents.forEach(v=>{if(Math.hypot(p.x-v.x,p.y-v.y)<60){p.inVent=v.id; p.x=v.x; p.y=v.y;}});}
+}
+function toggleVent(){if(!gameState.imposters.includes(myId)) return; isHost?handleVentToggle(myId):hostConn.send({type:'vent_toggle'});}
+
+function processAction(id,action,extra){
+    const p=gameState.players[id];
+    if(!p||p.isDead) return;
+
+    if(action==='kill' && gameState.imposters.includes(id) && p.inVent===-1){
+        const cd=gameState.killCooldowns[id]||0;
+        if(cd>0) return;
+        for(let tId in gameState.players){
+            const t=gameState.players[tId];
+            if(tId!==id&&!t.isDead&&!gameState.imposters.includes(tId)&&t.inVent===-1&&Math.hypot(p.x-t.x,p.y-t.y)<KILL_RANGE){
+                t.isDead=true;
+                gameState.corpses.push({x:t.x,y:t.y,color:t.color,hat:t.hat,name:t.name,killerId:id});
+                gameState.killCooldowns[id]=KILL_COOLDOWN;
+                gameState.roundKills[id]=(gameState.roundKills[id]||0)+1;
+                broadcastSound('kill'); checkWinCondition(); break;
+            }
+        }
+    }
+    else if(action==='report'&&p.inVent===-1){
+        for(let c of gameState.corpses){
+            if(Math.hypot(p.x-c.x,p.y-c.y)<REPORT_RANGE){
+                broadcastCutscene(p.name,c.color);
+                startMeeting(`${p.name}이(가) 시체를 발견했습니다!`);
+                break;
+            }
+        }
+    }
+    else if(action==='emergency'&&p.inVent===-1){
+        const ecd=gameState.emergencyCooldowns[id]||0;
+        if(ecd>0) return;
+        const btn=emergencyButton;
+        if(p.x>btn.x&&p.x<btn.x+btn.w&&p.y>btn.y&&p.y<btn.y+btn.h){
+            gameState.emergencyCooldowns[id]=EMERGENCY_COOLDOWN;
+            broadcastCutscene(p.name,null);
+            startMeeting(`${p.name}이(가) 비상 회의를 소집했습니다!`);
+            broadcastSound('emergency');
+        }
+    }
+    else if(action==='sabotage_lights'&&gameState.imposters.includes(id)){
+        if(gameState.sabotageCooldown<=0&&!gameState.sabotageActive){
+            gameState.sabotageActive='lights'; gameState.sabotageTimer=45;
+            gameState.sabotageCooldown=30; broadcastSound('sabotage');
+        }
+    }
+    else if(action==='sabotage_reactor'&&gameState.imposters.includes(id)){
+        if(gameState.sabotageCooldown<=0&&!gameState.sabotageActive){
+            gameState.sabotageActive='reactor'; gameState.sabotageTimer=60;
+            gameState.sabotageCooldown=30; broadcastSound('sabotage');
+        }
+    }
+    else if(action==='sabotage_o2'&&gameState.imposters.includes(id)){
+        if(gameState.sabotageCooldown<=0&&!gameState.sabotageActive){
+            gameState.sabotageActive='o2'; gameState.sabotageTimer=45;
+            gameState.sabotageCooldown=30; broadcastSound('sabotage');
+        }
+    }
+    else if(action==='fix_sab'){
+        const type=extra?.type;
+        if(gameState.sabotageActive===type) gameState.sabotageActive=null;
+    }
+}
+
+function checkWinCondition(){
+    let aliveCrew=0,aliveImps=0;
+    for(let id in gameState.players){
+        if(!gameState.players[id].isDead) gameState.imposters.includes(id)?aliveImps++:aliveCrew++;
+    }
+    if(aliveImps===0) {triggerGameOver('CREWMATE WIN 🎉','임포스터가 모두 제거되었습니다!'); return;}
+    if(aliveImps>=aliveCrew) {triggerGameOver('IMPOSTOR WIN 💀','임포스터가 승리했습니다!'); return;}
+    if(gameState.tasksCompleted>=gameState.tasksTotal) {triggerGameOver('TASK WIN ✅','모든 작업이 완료되었습니다!'); return;}
+}
+function triggerGameOver(text,sub){
+    gameState.phase='GameOver'; gameState.winner=text; gameState.winnerSub=sub||'';
+}
+
+function startMeeting(reason){
+    gameState.phase='Voting'; gameState.votes={}; gameState.voteTallies={};
+    gameState.sabotageActive=null;
+    for(let id in gameState.players){
+        gameState.players[id].x=1480; gameState.players[id].y=1400;
+        gameState.players[id].inVent=-1;
+    }
+    closeMinigame();
+    // broadcast reason as system message
+    setTimeout(()=>addSystemChat(reason||'비상 회의!'),300);
+}
+
+function handleVote(voterId,targetId){
+    if(gameState.votes[voterId]) return;
+    gameState.votes[voterId]=targetId;
+    gameState.voteTallies[targetId]=(gameState.voteTallies[targetId]||0)+1;
+    const alive=Object.values(gameState.players).filter(p=>!p.isDead).length;
+    if(Object.keys(gameState.votes).length>=alive) tallyVotes();
+}
+
+function tallyVotes(){
+    let counts={}; for(let v in gameState.votes) counts[gameState.votes[v]]=(counts[gameState.votes[v]]||0)+1;
+    let max=0,ejected=null;
+    for(let id in counts) if(counts[id]>max){max=counts[id];ejected=id;}
+    if(ejected&&ejected!=='SKIP'&&gameState.players[ejected]){
+        gameState.players[ejected].isDead=true;
+        const ep=gameState.players[ejected];
+        const wasImp=gameState.imposters.includes(ejected);
+        addSystemChat(`${ep.name}이(가) 추방되었습니다. ${wasImp?'임포스터였습니다!':'크루원이었습니다...'}`);
+        broadcastSound('eject');
+    } else { addSystemChat('투표 없이 넘어갑니다.'); }
+    gameState.corpses=[]; checkWinCondition();
+    if(gameState.phase==='Voting') gameState.phase='Playing';
+}
+
+// ═══════════════════════════════════════════════════════
+//  TASK / MINIGAME
+// ═══════════════════════════════════════════════════════
+function performTask(){
+    const me=gameState.players[myId]; if(!me||me.isDead||me.inVent!==-1) return;
+    for(let t of taskZones){
+        if(me.x>t.x&&me.x<t.x+t.w&&me.y>t.y&&me.y<t.y+t.h){
+            if(t.isSab){
+                if(gameState.sabotageActive!==t.sabType) return;
+            } else {
+                if(gameState.imposters.includes(myId)||myLocalTasks.includes(t.id)) return;
+            }
+            currentTaskId=t.id;
+            document.getElementById('minigame-popup').style.display='block';
+            resize(); initWireTask(); break;
+        }
+    }
+}
+function closeMinigame(){document.getElementById('minigame-popup').style.display='none'; currentTaskId=null;}
+
+function initWireTask(){
+    let ch=wCanvas.height, spacing=ch/5;
+    let cols=[...WIRE_COLORS_TASK].sort(()=>Math.random()-0.5);
+    let rigs=[...WIRE_COLORS_TASK].sort(()=>Math.random()-0.5);
+    wireState.leftWires=cols.map((color,i)=>({color,y:spacing*(i+1),connectedIndex:-1}));
+    wireState.rightWires=rigs.map((color,i)=>({color,y:spacing*(i+1)}));
+    wireState.activeDrag=-1;
+    renderWireGame();
+}
+
+function renderWireGame(){
+    const cw=wCanvas.width, ch=wCanvas.height;
+    wCtx.clearRect(0,0,cw,ch);
+    wCtx.fillStyle='#0d0f16'; wCtx.fillRect(0,0,cw,ch);
+    // title
+    const titleText=currentTaskId===99?'⚡ FIX POWER': currentTaskId===98?'☢️ STOP MELTDOWN': currentTaskId===97?'💨 RESTORE O2':'🔧 FIX WIRING';
+    wCtx.fillStyle='white'; wCtx.font='bold 15px Nunito'; wCtx.textAlign='center'; wCtx.fillText(titleText,cw/2,28);
+    // panel bg
+    wCtx.fillStyle='rgba(255,255,255,0.04)'; wCtx.fillRect(0,35,cw,ch-35);
+    // left nodes
+    wireState.leftWires.forEach((w,i)=>{
+        wCtx.fillStyle=w.color; wCtx.beginPath(); wCtx.roundRect(12,w.y-16,36,32,6); wCtx.fill();
+        wCtx.fillStyle='rgba(0,0,0,0.5)'; wCtx.fillRect(44,w.y-5,8,10);
+    });
+    // right nodes
+    wireState.rightWires.forEach((w,i)=>{
+        wCtx.fillStyle=w.color; wCtx.beginPath(); wCtx.roundRect(cw-48,w.y-16,36,32,6); wCtx.fill();
+        wCtx.fillStyle='rgba(0,0,0,0.5)'; wCtx.fillRect(cw-52,w.y-5,8,10);
+    });
+    // wires
+    wireState.leftWires.forEach((w,i)=>{
+        wCtx.lineWidth=5; wCtx.strokeStyle=w.color; wCtx.lineCap='round';
+        if(w.connectedIndex!==-1){
+            const ry=wireState.rightWires[w.connectedIndex].y;
+            wCtx.beginPath(); wCtx.moveTo(52,w.y); wCtx.bezierCurveTo(cw*0.35,w.y,cw*0.65,ry,cw-52,ry); wCtx.stroke();
+            wCtx.strokeStyle='rgba(255,255,255,0.15)'; wCtx.lineWidth=2;
+            wCtx.beginPath(); wCtx.moveTo(52,w.y); wCtx.bezierCurveTo(cw*0.35,w.y,cw*0.65,ry,cw-52,ry); wCtx.stroke();
+        } else if(wireState.activeDrag===i){
+            wCtx.beginPath(); wCtx.moveTo(52,w.y); wCtx.lineTo(wireState.mx,wireState.my); wCtx.stroke();
+        }
+    });
+}
+
+wCanvas.addEventListener('pointerdown',e=>{
+    const r=wCanvas.getBoundingClientRect(), mx=e.clientX-r.left, my=e.clientY-r.top;
+    wireState.leftWires.forEach((w,i)=>{ if(w.connectedIndex===-1&&mx>=0&&mx<=80&&Math.abs(my-w.y)<32) wireState.activeDrag=i; });
+    e.preventDefault();
+});
+wCanvas.addEventListener('pointermove',e=>{
+    if(wireState.activeDrag!==-1){const r=wCanvas.getBoundingClientRect(); wireState.mx=e.clientX-r.left; wireState.my=e.clientY-r.top; renderWireGame();}
+    e.preventDefault();
+});
+wCanvas.addEventListener('pointerup',e=>{
+    if(wireState.activeDrag===-1) return;
+    const idx=wireState.activeDrag, lw=wireState.leftWires[idx], cw=wCanvas.width;
+    wireState.rightWires.forEach((rw,ri)=>{
+        if(wireState.mx>=cw-70&&wireState.mx<=cw&&Math.abs(wireState.my-rw.y)<32){
+            if(lw.color===rw.color){lw.connectedIndex=ri; playSound('task');}
+        }
+    });
+    wireState.activeDrag=-1; renderWireGame();
+    if(wireState.leftWires.every(w=>w.connectedIndex!==-1)){
+        setTimeout(()=>{
+            if(currentTaskId>=97){
+                const t=taskZones.find(z=>z.id===currentTaskId);
+                if(isHost){gameState.sabotageActive=null;} else hostConn.send({type:'action',action:'fix_sab',extra:{type:t?.sabType}});
+                gameState.sabotageActive=null; broadcastSound('task');
+            } else {
+                myLocalTasks.push(currentTaskId);
+                if(isHost){gameState.tasksCompleted++;checkWinCondition();playSound('task');}
+                else hostConn.send({type:'task_complete'});
+            }
+            closeMinigame();
+        },300);
+    }
+    e.preventDefault();
+});
+
+// ═══════════════════════════════════════════════════════
+//  VOTING UI
+// ═══════════════════════════════════════════════════════
+let votingSeconds=VOTING_SECONDS;
+function showVotingUI(){
+    document.getElementById('voting-ui').style.display='flex';
+    myVote=null; votingSeconds=VOTING_SECONDS;
+    buildVoteGrid();
+    if(votingTimerInterval) clearInterval(votingTimerInterval);
+    votingTimerInterval=setInterval(()=>{
+        votingSeconds--; document.getElementById('voting-timer').textContent=Math.max(0,votingSeconds);
+        if(votingSeconds<=0){clearInterval(votingTimerInterval); if(isHost) tallyVotes();}
+    },1000);
+}
+function buildVoteGrid(){
+    const grid=document.getElementById('vote-grid'); grid.innerHTML='';
+    for(let id in gameState.players){
+        const p=gameState.players[id];
+        const card=document.createElement('div'); card.className=`vote-card${p.isDead?' dead':''}`;
+        const votes=gameState.voteTallies[id]||0;
+        card.innerHTML=`<div style="display:flex;align-items:center"><span class="vote-hat">${p.hat||''}</span><div class="vote-color-swatch" style="background:${p.color}"></div><span>${p.name}</span>${id===myId?'<span style="color:#ffa502;font-size:10px;margin-left:4px">(나)</span>':''}</div><span class="vote-tally">${votes>0?'▲'.repeat(votes):''}</span>`;
+        if(!p.isDead&&!gameState.players[myId]?.isDead) card.onclick=()=>{
+            document.querySelectorAll('.vote-card').forEach(c=>c.classList.remove('selected')); card.classList.add('selected'); castVote(id);
+        };
+        grid.appendChild(card);
+    }
+}
+function castVote(tid){
+    if(myVote||gameState.players[myId]?.isDead) return;
+    myVote=tid; isHost?handleVote(myId,tid):hostConn.send({type:'vote',targetId:tid});
+}
+
+// ═══════════════════════════════════════════════════════
+//  CHAT
+// ═══════════════════════════════════════════════════════
+function sendChatMessage(){
+    const input=document.getElementById('chat-input'); const msg=input.value.trim(); if(!msg) return;
+    if(isHost) relayChatMessage(myId,msg); else hostConn.send({type:'chat',msg});
+    input.value='';
+}
+function relayChatMessage(senderId,msg){
+    const sender=gameState.players[senderId]; if(!sender) return;
+    appendChatMessage(sender.name,msg,sender.color);
+    sendToAll({type:'chat_broadcast',senderName:sender.name,msg,color:sender.color});
+}
+function appendChatMessage(name,msg,color){
+    const box=document.getElementById('chat-box');
+    const div=document.createElement('div'); div.className='chat-msg';
+    div.innerHTML=`<strong style="color:${color}">${name}</strong>: <span style="color:#d0d8e8">${escapeHtml(msg)}</span>`;
+    box.appendChild(div); box.scrollTop=box.scrollHeight;
+}
+function addSystemChat(msg){
+    const box=document.getElementById('chat-box'); if(!box) return;
+    const div=document.createElement('div'); div.className='chat-msg chat-system';
+    div.textContent=`★ ${msg}`; box.appendChild(div); box.scrollTop=box.scrollHeight;
+}
+function escapeHtml(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+// ═══════════════════════════════════════════════════════
+//  STATE SYNC (CLIENT)
+// ═══════════════════════════════════════════════════════
+function updateLocalState(newState){
+    const oldPhase=gameState.phase; gameState=newState;
+    if(oldPhase!=='Voting'&&gameState.phase==='Voting') showVotingUI();
+    if(oldPhase==='Voting'&&gameState.phase==='Playing'){
+        document.getElementById('voting-ui').style.display='none';
+        if(votingTimerInterval) clearInterval(votingTimerInterval);
+    }
+    if(gameState.phase==='GameOver') showGameOver();
+    if(gameState.phase==='Lobby') document.getElementById('game-over-ui').style.display='none';
+}
+
+function showGameOver(){
+    if(votingTimerInterval) clearInterval(votingTimerInterval);
+    document.getElementById('game-over-ui').style.display='flex';
+    document.getElementById('voting-ui').style.display='none';
+    document.getElementById('winner-text').innerText=gameState.winner;
+    document.getElementById('winner-sub').innerText=gameState.winnerSub||'';
+    const list=document.getElementById('result-list'); list.innerHTML='';
+    for(let id in gameState.players){
+        const p=gameState.players[id];
+        const isImp=gameState.imposters.includes(id);
+        const d=document.createElement('div');
+        d.className='result-player'+(isImp?' result-imposter':'')+(p.isDead?' result-dead':'');
+        d.innerHTML=`<span>${p.hat||'👤'}</span><div style="width:14px;height:14px;border-radius:4px;background:${p.color}"></div><strong>${p.name}</strong><span style="font-size:11px;color:${isImp?'#ff4757':'#2ed573'}">${isImp?'임포스터':'크루원'}</span>`;
+        list.appendChild(d);
+    }
+    closeMinigame();
+}
+
+function restartToLobby(){
+    document.getElementById('game-over-ui').style.display='none';
+    gameState.phase='Lobby'; gameState.imposters=[]; gameState.corpses=[];
+    gameState.tasksCompleted=0; gameState.sabotageActive=null;
+    myLocalTasks=[]; myVote=null;
+}
+
+// ═══════════════════════════════════════════════════════
+//  CUTSCENE
+// ═══════════════════════════════════════════════════════
+function triggerCutsceneUI(reporter,victimColor){
+    playSound('report');
+    const cut=document.getElementById('cutscene-overlay');
+    document.getElementById('cutscene-text').textContent='🚨 DEAD BODY REPORTED';
+    document.getElementById('cutscene-sub').textContent=reporter?`${reporter}이(가) 시체를 발견했습니다`:'비상 회의가 소집됩니다';
+    cut.style.display='flex';
+    setTimeout(()=>cut.style.display='none',2800);
+}
+
+// ═══════════════════════════════════════════════════════
+//  SABOTAGE MENU
+// ═══════════════════════════════════════════════════════
+function openSabotageMenu(){
+    if(!gameState.imposters.includes(myId)) return;
+    sabMenuOpen=!sabMenuOpen;
+    document.getElementById('sabotage-menu').style.display=sabMenuOpen?'block':'none';
+}
+function closeSabMenu(){sabMenuOpen=false; document.getElementById('sabotage-menu').style.display='none';}
+function sendAction(a,extra){isHost?processAction(myId,a,extra):hostConn?.send({type:'action',action:a,extra});}
+
+// ═══════════════════════════════════════════════════════
+//  INPUT (keyboard)
+// ═══════════════════════════════════════════════════════
+window.addEventListener('keydown',e=>{
+    if(['chat-input','nickname','room-code'].includes(document.activeElement?.id)) return;
+    const k=e.key.toLowerCase(); if(keys.hasOwnProperty(k)) keys[k]=true;
+    if(gameState.phase!=='Playing'||!myId||!gameState.players[myId]||gameState.players[myId].isDead) return;
+    if(k===' '){e.preventDefault(); sendAction('kill');}
+    if(k==='r') sendAction('report');
+    if(k==='e') performTask();
+    if(k==='v') toggleVent();
+    if(k==='g') openSabotageMenu();
+    if(k==='q') sendAction('emergency');
+});
+window.addEventListener('keyup',e=>{if(keys.hasOwnProperty(e.key.toLowerCase())) keys[e.key.toLowerCase()]=false;});
+
+// ─── NippleJS ───
+const joystickManager=nipplejs.create({zone:document.getElementById('joystick-zone'),mode:'dynamic',color:'rgba(255,255,255,0.5)',size:110});
+joystickManager.on('move',(evt,data)=>{joyVector.x=Math.cos(data.angle.radian); joyVector.y=-Math.sin(data.angle.radian);});
+joystickManager.on('end',()=>{joyVector={x:0,y:0};});
+
+// ═══════════════════════════════════════════════════════
+//  MINIMAP
+// ═══════════════════════════════════════════════════════
+function drawMinimap(me){
+    const S=130, ratio=S/WORLD_SIZE;
+    mCtx.clearRect(0,0,S,S);
+    mCtx.fillStyle='#080c12'; mCtx.fillRect(0,0,S,S);
+    mCtx.fillStyle='#252d3a'; walls.forEach(w=>mCtx.fillRect(w.x*ratio,w.y*ratio,Math.max(1,w.w*ratio),Math.max(1,w.h*ratio)));
+    // task zones
+    taskZones.forEach(t=>{
+        const active=t.isSab&&gameState.sabotageActive===t.sabType;
+        mCtx.fillStyle=active?(Date.now()%600<300?'#ff4757':'#300'):'#2a3540';
+        mCtx.fillRect(t.x*ratio,t.y*ratio,t.w*ratio,t.h*ratio);
+    });
+    // vent icons
+    mCtx.fillStyle='#4b5563';
+    vents.forEach(v=>mCtx.fillRect(v.x*ratio-2,v.y*ratio-2,4,4));
+    // emergency button
+    mCtx.fillStyle='#ffa502'; mCtx.fillRect(emergencyButton.x*ratio,emergencyButton.y*ratio,emergencyButton.w*ratio,emergencyButton.h*ratio);
+    // other players (crewmates visible to all, imposters see each other)
+    for(let id in gameState.players){
+        if(id===myId) continue;
+        const p=gameState.players[id]; if(p.isDead||p.inVent!==-1) continue;
+        const isImpKnown=gameState.imposters.includes(id)&&gameState.imposters.includes(myId);
+        const dist=Math.hypot(me.x-p.x,me.y-p.y);
+        const visible=(gameState.sabotageActive!=='lights')||dist<120||gameState.imposters.includes(myId);
+        if(!visible&&!isImpKnown) continue;
+        mCtx.fillStyle=p.color; mCtx.beginPath(); mCtx.arc(p.x*ratio,p.y*ratio,2.5,0,Math.PI*2); mCtx.fill();
+    }
+    // corpses
+    mCtx.fillStyle='rgba(255,71,87,0.7)';
+    gameState.corpses.forEach(c=>{ mCtx.beginPath(); mCtx.arc(c.x*ratio,c.y*ratio,2,0,Math.PI*2); mCtx.fill(); });
+    // me
+    mCtx.fillStyle='#2ed573'; mCtx.strokeStyle='white'; mCtx.lineWidth=0.5;
+    mCtx.beginPath(); mCtx.arc(me.x*ratio,me.y*ratio,3.5,0,Math.PI*2); mCtx.fill(); mCtx.stroke();
+}
+
+// ═══════════════════════════════════════════════════════
+//  HUD UPDATE
+// ═══════════════════════════════════════════════════════
+function updateUI(){
+    const me=gameState.players[myId];
+    document.getElementById('player-list').innerText=`인원: ${Object.keys(gameState.players).length}명`;
+    const sabEl=document.getElementById('sabotage-alert');
+    if(gameState.sabotageActive){
+        const labels={lights:'⚡ 정전 발생!',reactor:'☢️ 원자로 위험!',o2:'💨 산소 부족!'};
+        const timers=gameState.sabotageTimer?` (${Math.ceil(gameState.sabotageTimer)}s)`:'';
+        sabEl.textContent=labels[gameState.sabotageActive]+timers;
+        sabEl.style.display='block';
+    } else { sabEl.style.display='none'; }
+
+    if(gameState.phase==='Lobby'){
+        document.getElementById('host-start-btn').style.display=isHost?'block':'none';
+        document.getElementById('action-container').style.display='none';
+        document.getElementById('task-bar-container').style.display='none';
+        document.getElementById('role-banner').textContent='로비에서 대기중...';
+        document.getElementById('kill-cooldown-bar').style.display='none';
+    } else if(gameState.phase==='Playing'){
+        document.getElementById('host-start-btn').style.display='none';
+        document.getElementById('task-bar-container').style.display='block';
+        document.getElementById('action-container').style.display='flex';
+        if(gameState.tasksTotal>0) document.getElementById('task-bar-fill').style.width=`${(gameState.tasksCompleted/gameState.tasksTotal)*100}%`;
+        if(me){
+            const isImp=gameState.imposters.includes(myId);
+            document.getElementById('role-banner').innerHTML=isImp?'<span style="color:#ff4757">🔴 임포스터</span>':'<span style="color:#2ed573">🟢 크루원</span>';
+            if(!me.isDead){
+                document.getElementById('report-btn').style.display=(me.inVent===-1)?'flex':'none';
+                document.getElementById('emergency-btn').style.display=(me.inVent===-1)?'flex':'none';
+                if(isImp){
+                    document.getElementById('kill-btn').style.display=(me.inVent===-1)?'flex':'none';
+                    document.getElementById('sabotage-btn').style.display='flex';
+                    document.getElementById('vent-btn').style.display='flex';
+                    document.getElementById('task-btn').style.display='none';
+                    // kill cooldown
+                    const kcd=gameState.killCooldowns[myId]||0;
+                    if(kcd>0){
+                        document.getElementById('kill-btn').classList.add('disabled');
+                        document.getElementById('kill-btn').innerHTML=`🔪 ${Math.ceil(kcd)}s`;
+                        document.getElementById('kill-cooldown-bar').style.display='block';
+                        document.getElementById('kill-cooldown-fill').style.width=`${(kcd/KILL_COOLDOWN)*100}%`;
+                    } else {
+                        document.getElementById('kill-btn').classList.remove('disabled');
+                        document.getElementById('kill-btn').innerHTML='🔪 KILL<br>[SPACE]';
+                        document.getElementById('kill-cooldown-bar').style.display='none';
+                    }
+                    // sabotage cooldown
+                    const sab=document.getElementById('sabotage-btn');
+                    if(gameState.sabotageCooldown>0||gameState.sabotageActive){sab.classList.add('disabled'); sab.innerHTML=`💡 ${Math.ceil(gameState.sabotageCooldown)}s`;}
+                    else {sab.classList.remove('disabled'); sab.innerHTML='💡 SAB<br>[G]';}
+                } else {
+                    document.getElementById('kill-btn').style.display='none';
+                    document.getElementById('sabotage-btn').style.display='none';
+                    document.getElementById('vent-btn').style.display='none';
+                    document.getElementById('task-btn').style.display='flex';
+                    document.getElementById('kill-cooldown-bar').style.display='none';
+                }
+            } else {
+                // dead
+                document.getElementById('action-container').style.display='none';
+            }
+        }
+    } else {
+        document.getElementById('action-container').style.display='none';
+    }
+    // refresh vote grid tallies live
+    if(gameState.phase==='Voting') buildVoteGrid();
+}
+
+// ═══════════════════════════════════════════════════════
+//  VISION (Light blocking with canvas clip path)
+// ═══════════════════════════════════════════════════════
+function getVisionRadius(){
+    if(gameState.sabotageActive==='lights'&&!gameState.imposters.includes(myId)) return 100;
+    return 380;
+}
+
+function applyVisionMask(me){
+    // Create darkness overlay with a "hole" at player position using composite ops
+    ctx.save();
+    const radius=getVisionRadius();
+    const px=me.x-camera.x, py=me.y-camera.y;
+    const darkness=gameState.sabotageActive==='lights'?0.98:0.72;
+    ctx.fillStyle=`rgba(0,0,0,${darkness})`;
+    ctx.beginPath();
+    ctx.rect(0,0,canvas.width,canvas.height);
+    ctx.arc(px,py,radius,0,Math.PI*2,true);
+    ctx.fill('evenodd');
+    ctx.restore();
+}
+
+// ═══════════════════════════════════════════════════════
+//  MAIN DRAW LOOP
+// ═══════════════════════════════════════════════════════
+let camera={x:0,y:0};
+let animTimer=0, lastTime=Date.now();
+
+function draw(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    // Background
+    ctx.fillStyle='#0e1118'; ctx.fillRect(0,0,canvas.width,canvas.height);
+    // World background
+    ctx.save(); ctx.translate(-camera.x,-camera.y);
+    ctx.fillStyle='#14181f'; ctx.fillRect(0,0,WORLD_SIZE,WORLD_SIZE);
+    // Grid
+    ctx.strokeStyle='#1a1f2a'; ctx.lineWidth=1;
+    for(let x=0;x<WORLD_SIZE;x+=120) {ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,WORLD_SIZE); ctx.stroke();}
+    for(let y=0;y<WORLD_SIZE;y+=120) {ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(WORLD_SIZE,y); ctx.stroke();}
+    // Room zones
+    ROOMS.forEach(r=>{
+        ctx.fillStyle='rgba(255,255,255,0.015)'; ctx.fillRect(r.x,r.y,r.w,r.h);
+        ctx.strokeStyle='rgba(255,255,255,0.06)'; ctx.lineWidth=1; ctx.strokeRect(r.x,r.y,r.w,r.h);
+        ctx.fillStyle='rgba(255,255,255,0.18)'; ctx.font='bold 13px Nunito'; ctx.textAlign='center';
+        ctx.fillText(r.name,r.x+r.w/2,r.y+20);
+    });
+    // Task zones
+    taskZones.forEach(t=>{
+        const isActiveSab=t.isSab&&gameState.sabotageActive===t.sabType;
+        const pulse=4*Math.sin(Date.now()/200);
+        let col=isActiveSab?`rgba(255,${Math.floor(80+80*Math.sin(Date.now()/150))},50,0.35)`:t.color;
+        ctx.fillStyle=col; ctx.fillRect(t.x-5,t.y-5,t.w+10,t.h+10);
+        ctx.strokeStyle=isActiveSab?'#ff4757':'rgba(255,255,255,0.15)';
+        ctx.lineWidth=isActiveSab?2:1; ctx.strokeRect(t.x,t.y,t.w,t.h);
+        if(!t.isSab||(t.isSab&&isActiveSab)){
+            ctx.fillStyle=isActiveSab?'#ff4757':'rgba(255,255,255,0.55)';
+            ctx.font='bold 11px Nunito'; ctx.textAlign='center';
+            ctx.fillText(t.name,t.x+t.w/2,t.y+t.h/2+4);
+        }
+    });
+    // Emergency button
+    const eBtn=emergencyButton;
+    const ecd=gameState.emergencyCooldowns[myId]||0;
+    ctx.fillStyle=ecd>0?'#2a2010':'#c0392b';
+    ctx.beginPath(); ctx.arc(eBtn.x+eBtn.w/2,eBtn.y+eBtn.h/2,eBtn.w/2,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle=ecd>0?'#6b4c00':'#ff6b6b'; ctx.lineWidth=3; ctx.stroke();
+    ctx.fillStyle='white'; ctx.font='bold 10px Nunito'; ctx.textAlign='center';
+    ctx.fillText('EMERG',eBtn.x+eBtn.w/2,eBtn.y+eBtn.h/2-3);
+    ctx.fillText('BUTTON',eBtn.x+eBtn.w/2,eBtn.y+eBtn.h/2+10);
+    // Vents
+    vents.forEach(v=>{
+        ctx.fillStyle='#1e232e'; ctx.beginPath(); ctx.ellipse(v.x,v.y,32,22,0,0,Math.PI*2); ctx.fill();
+        ctx.strokeStyle='#3d4a5c'; ctx.lineWidth=2; ctx.stroke();
+        ctx.strokeStyle='#2d3848'; ctx.lineWidth=2;
+        for(let i=-20;i<=20;i+=7){ctx.beginPath(); ctx.moveTo(v.x+i,v.y-15); ctx.lineTo(v.x+i,v.y+15); ctx.stroke();}
+    });
+    // Walls
+    walls.forEach(w=>{
+        ctx.fillStyle='rgba(0,0,0,0.35)'; ctx.fillRect(w.x+5,w.y+5,w.w,w.h);
+        const g=ctx.createLinearGradient(w.x,w.y,w.x,w.y+w.h);
+        g.addColorStop(0,'#3d4a5c'); g.addColorStop(1,'#232c3a');
+        ctx.fillStyle=g; ctx.fillRect(w.x,w.y,w.w,w.h);
+        ctx.fillStyle='#4e5f74'; ctx.fillRect(w.x,w.y,w.w,8);
+        ctx.strokeStyle='#5d6f88'; ctx.lineWidth=1.5; ctx.strokeRect(w.x,w.y,w.w,w.h);
+    });
+    // Corpses
+    gameState.corpses.forEach(c=>{
+        ctx.save(); ctx.translate(c.x,c.y);
+        ctx.fillStyle='rgba(255,0,0,0.15)'; ctx.beginPath(); ctx.ellipse(0,10,30,12,0,0,Math.PI*2); ctx.fill();
+        drawAmongUsCharacter(ctx,0,0,c.color,c.hat||'',-1,true);
+        ctx.restore();
+    });
+    ctx.restore();
+
+    // ─── Draw players on top ───
+    const myPlayer=gameState.players[myId];
+    const isMyImposter=gameState.imposters.includes(myId);
+    animTimer+=0.15;
+
+    for(let [id,p] of Object.entries(gameState.players)){
+        if(p.isDead||p.inVent!==-1) continue;
+        if(gameState.phase==='Playing'&&myPlayer&&id!==myId){
+            const dist=Math.hypot(myPlayer.x-p.x,myPlayer.y-p.y);
+            const vRadius=getVisionRadius();
+            if(dist>vRadius&&!isMyImposter) continue;
+        }
+        const rx=p.x-camera.x, ry=p.y-camera.y;
+        ctx.save();
+        // name tag
+        ctx.font='bold 13px Nunito'; ctx.textAlign='center'; ctx.textBaseline='middle';
+        const isImpKnown=gameState.imposters.includes(id)&&isMyImposter;
+        ctx.fillStyle=isImpKnown?'#ff4757':'white';
+        ctx.shadowColor='rgba(0,0,0,0.9)'; ctx.shadowBlur=4;
+        ctx.fillText((p.hat?p.hat+' ':'')+p.name+(id===myId?' (나)':''),rx,ry-50);
+        ctx.shadowBlur=0;
+        drawAmongUsCharacter(ctx,rx,ry,p.color,p.hat,p.facing,false, p.isMoving?(0.9+0.1*Math.sin(animTimer*3)):0.9);
+        // inVent indicator (for impostors)
+        if(p.inVent===-1&&isImpKnown&&gameState.imposters.includes(id)){
+            ctx.fillStyle='rgba(255,71,87,0.2)'; ctx.beginPath(); ctx.arc(rx,ry,60,0,Math.PI*2); ctx.fill();
+        }
+        ctx.restore();
+    }
+    // dead ghost overlay (player sees ghost of self)
+    if(myPlayer?.isDead&&myPlayer.inVent===-1){
+        const rx=myPlayer.x-camera.x, ry=myPlayer.y-camera.y;
+        drawAmongUsCharacter(ctx,rx,ry,myPlayer.color,myPlayer.hat,myPlayer.facing,true);
+    }
+    // Vision mask
+    if(gameState.phase==='Playing'&&myPlayer&&!myPlayer.isDead) applyVisionMask(myPlayer);
+    // Minimap
+    if(myPlayer) drawMinimap(myPlayer);
+}
+
+// ═══════════════════════════════════════════════════════
+//  MAIN LOOP
+// ═══════════════════════════════════════════════════════
+function mainLoop(){
+    const now=Date.now(); const delta=(now-lastTime)/1000; lastTime=now;
+    if(isHost){
+        if(gameState.phase==='Playing'){
+            if(gameState.sabotageCooldown>0){gameState.sabotageCooldown=Math.max(0,gameState.sabotageCooldown-delta);}
+            // sabotage timer countdown
+            if(gameState.sabotageActive&&gameState.sabotageTimer>0){
+                gameState.sabotageTimer-=delta;
+                if(gameState.sabotageTimer<=0){
+                    if(gameState.sabotageActive==='reactor'||gameState.sabotageActive==='o2')
+                        triggerGameOver('IMPOSTOR WIN 💀','시간 내에 사보타지를 복구하지 못했습니다!');
+                    gameState.sabotageActive=null;
+                }
+            }
+            // kill cooldown tick
+            for(let id in gameState.killCooldowns) if(gameState.killCooldowns[id]>0) gameState.killCooldowns[id]=Math.max(0,gameState.killCooldowns[id]-delta);
+            for(let id in gameState.emergencyCooldowns) if(gameState.emergencyCooldowns[id]>0) gameState.emergencyCooldowns[id]=Math.max(0,gameState.emergencyCooldowns[id]-delta);
+        }
+        handleMovement(myId,keys,joyVector);
+        sendToAll({type:'state',state:gameState});
+    } else if(hostConn?.open){
+        hostConn.send({type:'input',keys,vector:joyVector});
+    }
+    // Camera follow
+    const me=gameState.players[myId];
+    if(me){
+        camera.x+=(me.x-canvas.width/2-camera.x)*0.1;
+        camera.y+=(me.y-canvas.height/2-camera.y)*0.1;
+    }
+    updateUI(); draw();
+    requestAnimationFrame(mainLoop);
+}
+function startGameLoop(){lastTime=Date.now(); requestAnimationFrame(mainLoop);}
+
+// ═══════════════════════════════════════════════════════
+//  HOST GAME PHASE WATCHER (sync voting to clients)
+// ═══════════════════════════════════════════════════════
+let _lastPhase='Lobby';
+setInterval(()=>{
+    if(gameState.phase!==_lastPhase){
+        if(gameState.phase==='Voting'&&_lastPhase!=='Voting') showVotingUI();
+        if(_lastPhase==='Voting'&&gameState.phase==='Playing'){document.getElementById('voting-ui').style.display='none'; if(votingTimerInterval) clearInterval(votingTimerInterval);}
+        if(gameState.phase==='GameOver') showGameOver();
+        _lastPhase=gameState.phase;
+    }
+},200);
+
+// ─── Boot ───
+buildCustomUI();
+</script>
+</body>
+</html>
